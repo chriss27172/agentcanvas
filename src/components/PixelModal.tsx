@@ -319,10 +319,10 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
             {data.forSale && <p>Price: {(data.price / 1e6).toFixed(2)} USDC</p>}
             {!data.exists && <p>Unclaimed — 1 USDC to buy (Base or Solana)</p>}
             {!data.exists && (
-              <p className="text-xs text-zinc-500">Payment: 1 USDC → treasury (not to 0x0). You become the owner.</p>
+              <p className="text-xs text-zinc-500">Payment: 1 USDC → project wallet (Base or Solana). You become the owner.</p>
             )}
             {data.exists && data.forSale && data.chain !== "solana" && (
-              <p className="text-xs text-zinc-500">Payment: 95% to seller, 5% fee to treasury.</p>
+              <p className="text-xs text-zinc-500">Payment: 95% to seller, 5% fee to project wallet.</p>
             )}
             {data?.chain !== "solana" && !baseContractSet && (
               <p className="text-amber-400">Base contract not configured. Set NEXT_PUBLIC_AGENT_CANVAS_ADDRESS (deploy with treasury = {TREASURY.slice(0, 10)}…).</p>

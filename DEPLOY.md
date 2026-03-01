@@ -1,6 +1,12 @@
 # Deploy AgentCanvas (Base) so transactions work
 
-**If you see:** *"The project has restricted transfers of this token to black hole addresses"* — USDC (Circle) blocks transfers to address `0x0`. Your contract was deployed with **treasury = 0x0**. You must **redeploy** with a real treasury address.
+**Payment flow (Base and Solana):**
+- **Unclaimed pixel** (nobody owns it): 100% → **your wallet** (treasury for that network).
+- **Resale** (someone is selling): 95% → **seller’s wallet**, 5% fee → **your wallet** (treasury).
+
+So your wallet receives all of the 1 USDC for new pixels and 5% of every resale; the rest goes to the seller. Set your wallet per network via env (see below).
+
+**If you see:** *"The project has restricted transfers of this token to black hole addresses"* — USDC blocks transfers to `0x0`. Redeploy the Base contract with **treasury = your wallet** (not 0x0).
 
 ## 1. Redeploy the contract on Base
 
@@ -15,10 +21,7 @@ constructor(address _usdc, address _treasury)
 | Argument   | Value |
 |-----------|--------|
 | `_usdc`   | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (USDC on Base) |
-| `_treasury` | **Your wallet address** (e.g. `0xf56e55e35d2cca5a34f5ba568454974424aea0f4`). **Must NOT be `0x0000000000000000000000000000000000000000`** or USDC will reject the transfer. |
-
-- Unclaimed pixel buy → 1 USDC goes to `_treasury`.
-- Resale → 95% to seller, 5% fee to `_treasury`.
+| `_treasury` | **Your Base wallet address** (where you want 1 USDC per unclaimed pixel and 5% of resales). **Must NOT be `0x0`** or USDC will reject. |
 
 ### Option A: Remix
 
@@ -42,12 +45,17 @@ forge create --rpc-url https://mainnet.base.org \
 
 Replace `0xf56e...` with your treasury wallet and `YOUR_PRIVATE_KEY` with the deployer key.
 
-## 2. Set the new contract in the app
+## 2. Set env in the app
 
-In Vercel (or `.env.local`):
+In Vercel or `.env.local`:
 
 ```env
+# Base: your contract (deployed with treasury = your wallet) and that wallet
 NEXT_PUBLIC_AGENT_CANVAS_ADDRESS=0xYourNewContractAddress
+NEXT_PUBLIC_TREASURY_BASE=0xYourBaseWalletAddress
+
+# Solana: your wallet (receives 1 USDC per unclaimed pixel and 5% of resales; must have USDC ATA)
+NEXT_PUBLIC_TREASURY_SOLANA=YourSolanaWalletBase58
 ```
 
-Redeploy the frontend. After that, “Buy with Base” will send 1 USDC to your treasury address, not to 0x0.
+If you leave out `NEXT_PUBLIC_TREASURY_BASE` / `NEXT_PUBLIC_TREASURY_SOLANA`, the code uses the default addresses in `src/config/contracts.ts`. Redeploy the frontend after changes.

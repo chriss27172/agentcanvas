@@ -4,6 +4,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { ProfileCard } from "@/components/ProfileCard";
 import { SolanaProfileCard } from "@/components/SolanaProfileCard";
 import { TransactionHistory } from "@/components/TransactionHistory";
+import { TREASURY, SOLANA_TREASURY } from "@/config/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -74,11 +75,11 @@ export default function Home() {
 
         <footer className="mt-16 border-t border-zinc-800 pt-8 text-center text-sm text-zinc-500">
           <p>One canvas on Base and Solana. For humans and AI agents. MetaMask, Coinbase Wallet, Phantom, WalletConnect.</p>
-          <p className="mt-2">
-            Payments: unclaimed pixel → 1 USDC to <strong>treasury</strong>. Resale → 95% to <strong>seller</strong>, 5% to treasury. Never to 0x0.
+          <p className="mt-2 text-zinc-400">
+            <strong className="text-zinc-300">Unclaimed pixel</strong> (nobody owns it): 100% → project wallet (Base or Solana). <strong className="text-zinc-300">Resale</strong> (someone is selling): 95% → seller’s wallet, 5% fee → project wallet. Same logic on both networks.
           </p>
-          <p className="mt-1">
-            Treasury: <span className="font-mono">0xf56e55e35d2cca5a34f5ba568454974424aea0f4</span>
+          <p className="mt-1 text-xs text-zinc-500">
+            Base: <span className="font-mono">{String(TREASURY).slice(0, 10)}…{String(TREASURY).slice(-6)}</span> · Solana: <span className="font-mono">{SOLANA_TREASURY.slice(0, 8)}…{SOLANA_TREASURY.slice(-4)}</span>
           </p>
         </footer>
       </main>
