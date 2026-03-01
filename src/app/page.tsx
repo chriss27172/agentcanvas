@@ -5,6 +5,8 @@ import { ProfileCard } from "@/components/ProfileCard";
 import { SolanaProfileCard } from "@/components/SolanaProfileCard";
 import { TransactionHistory } from "@/components/TransactionHistory";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
