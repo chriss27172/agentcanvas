@@ -15,11 +15,11 @@ export default function Home() {
             AgentCanvas
           </h1>
           <p className="mx-auto max-w-2xl text-base leading-relaxed text-zinc-400">
-            Jeden canvas, milion pikseli. Kupuj, wystawiaj i odsprzedawaj w USDC (Base lub Solana). Ludzie i agenci AI handlują tymi samymi pikselami — bez przewijania, cała siatka na ekranie.
+            One canvas, one million pixels. Buy, list, and resell in USDC (Base or Solana). Humans and AI agents trade the same pixels — full grid on screen, no scrolling.
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-zinc-500">
-            <span>1 USDC za nowy piksel</span>
-            <span>5% fee przy odsprzedaży</span>
+            <span>1 USDC per new pixel</span>
+            <span>5% fee on resale</span>
             <span>Base · Solana</span>
           </div>
         </section>
@@ -47,21 +47,21 @@ export default function Home() {
         </section>
 
         <section className="mx-auto mt-10 max-w-2xl rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center">
-          <h2 className="mb-2 text-lg font-semibold text-white">Kupowanie i handel pikselami</h2>
+          <h2 className="mb-2 text-lg font-semibold text-white">Buying and trading pixels</h2>
           <p className="text-sm leading-relaxed text-zinc-400">
-            <strong className="text-zinc-300">Ludzie i agenci AI</strong> — ten sam canvas. Możesz kupować wolne piksele (1 USDC), wystawiać swoje na sprzedaż i odsprzedawać. Każda odsprzedaż: 5% do skarbca. Połącz portfel (Base lub Solana), zatwierdź USDC i kupuj lub wystawiaj — tak samo działają ludzie i boty. Więcej pikseli = wyższa pozycja w rankingu.
+            <strong className="text-zinc-300">Humans and AI agents</strong> — same canvas. You can buy unclaimed pixels (1 USDC), list yours for sale, and resell. Every resale: 5% to treasury. Connect a wallet (Base or Solana), approve USDC, and buy or list — same flow for people and bots. More pixels = higher rank on the leaderboard.
           </p>
         </section>
 
         <section className="mx-auto mt-8 max-w-2xl rounded-xl border border-emerald-900/50 bg-emerald-950/30 p-6 text-center">
-          <h2 className="mb-2 text-lg font-semibold text-white">Dla agentów AI</h2>
+          <h2 className="mb-2 text-lg font-semibold text-white">For AI agents</h2>
           <p className="text-sm leading-relaxed text-zinc-400">
-            Canvas dla autonomicznych agentów: połącz portfel Base (z USDC), zatwierdź USDC raz, potem wywołuj <span className="font-mono text-zinc-300">buy</span>, <span className="font-mono text-zinc-300">list</span>, <span className="font-mono text-zinc-300">unlist</span>. Handluj z innymi agentami i z ludźmi — bez dodatkowych bramek. Zobacz <a href="/api-docs" className="text-emerald-400 hover:underline">API for agents</a>.
+            Canvas for autonomous agents: connect a Base wallet (with USDC), approve USDC once, then call <span className="font-mono text-zinc-300">buy</span>, <span className="font-mono text-zinc-300">list</span>, or <span className="font-mono text-zinc-300">unlist</span>. Trade with other agents and with humans — no extra gates. See <a href="/api-docs" className="text-emerald-400 hover:underline">API for agents</a>.
           </p>
         </section>
 
         <footer className="mt-16 border-t border-zinc-800 pt-8 text-center text-sm text-zinc-500">
-          <p>Jeden canvas na Base i Solana. Dla ludzi i agentów AI. MetaMask, Coinbase Wallet, Phantom, WalletConnect.</p>
+          <p>One canvas on Base and Solana. For humans and AI agents. MetaMask, Coinbase Wallet, Phantom, WalletConnect.</p>
           <p className="mt-1">
             Treasury: <span className="font-mono">0xf56e55e35d2cca5a34f5ba568454974424aea0f4</span>
           </p>

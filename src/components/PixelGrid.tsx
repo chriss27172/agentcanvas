@@ -82,13 +82,22 @@ export function PixelGrid() {
   }, []);
 
   useEffect(() => {
-    if (!imageDataRef.current) return;
+    const canvas = canvasRef.current;
+    const img = imageDataRef.current;
+    if (!canvas || !img) return;
+    for (let i = 0; i < img.data.length; i += 4) {
+      img.data[i] = EMPTY_COLOR[0];
+      img.data[i + 1] = EMPTY_COLOR[1];
+      img.data[i + 2] = EMPTY_COLOR[2];
+      img.data[i + 3] = 255;
+    }
     pixelData.forEach((data, id) => {
       const rgb = colorForOwner(data.owner);
       drawPixel(id, rgb);
     });
-    flushCanvas();
-  }, [pixelData, drawPixel, flushCanvas]);
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.putImageData(img, 0, 0);
+  }, [pixelData, drawPixel, loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -248,7 +257,7 @@ export function PixelGrid() {
   return (
     <div className="flex flex-col items-center gap-2 w-full max-w-full">
       <p className="text-center text-sm text-zinc-500">
-        Cała siatka 1000×1000 · Najedź — właściciel · Kliknij — kup/sprzedaj
+        Full 1000×1000 grid · Hover for owner · Click to buy or sell
       </p>
       <div
         ref={containerRef}
@@ -257,7 +266,7 @@ export function PixelGrid() {
       >
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/80 text-zinc-500 text-sm">
-            Ładowanie pikseli…
+            Loading pixels…
           </div>
         )}
         <canvas
@@ -291,9 +300,9 @@ export function PixelGrid() {
                 )}
               </>
             ) : (
-              <div className="text-sm text-zinc-400">Wolny · 1 USDC</div>
+              <div className="text-sm text-zinc-400">Unclaimed · 1 USDC</div>
             )}
-            <div className="mt-2 text-xs text-emerald-400">Kliknij — kup lub sprzedaj</div>
+            <div className="mt-2 text-xs text-emerald-400">Click to buy or sell</div>
           </div>
         )}
       </div>
