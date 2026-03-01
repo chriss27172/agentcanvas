@@ -52,6 +52,7 @@ export function PixelGrid() {
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Paint gray immediately so the canvas is never blank
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -59,8 +60,7 @@ export function PixelGrid() {
     canvas.height = GRID_SIZE;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    imageDataRef.current = ctx.createImageData(GRID_SIZE, GRID_SIZE);
-    const img = imageDataRef.current;
+    const img = ctx.createImageData(GRID_SIZE, GRID_SIZE);
     for (let i = 0; i < img.data.length; i += 4) {
       img.data[i] = EMPTY_COLOR[0];
       img.data[i + 1] = EMPTY_COLOR[1];
@@ -68,52 +68,48 @@ export function PixelGrid() {
       img.data[i + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
+    imageDataRef.current = img;
   }, []);
 
-  // Redraw canvas whenever pixelData or loading changes. Use fresh ImageData so we never show a blank buffer.
+  // Redraw whenever pixelData or loading changes. Use requestAnimationFrame so paint runs after layout.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (canvas.width !== GRID_SIZE || canvas.height !== GRID_SIZE) {
-      canvas.width = GRID_SIZE;
-      canvas.height = GRID_SIZE;
+    const w = GRID_SIZE;
+    const h = GRID_SIZE;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const w = canvas.width;
-    const h = canvas.height;
-    const img = ctx.createImageData(w, h);
-    for (let i = 0; i < img.data.length; i += 4) {
-      img.data[i] = EMPTY_COLOR[0];
-      img.data[i + 1] = EMPTY_COLOR[1];
-      img.data[i + 2] = EMPTY_COLOR[2];
-      img.data[i + 3] = 255;
-    }
-    pixelData.forEach((data, id) => {
-      const rgb = colorForOwner(data.owner);
-      const px = Math.floor(id / GRID_SIZE);
-      const py = id % GRID_SIZE;
-      const idx = (py * GRID_SIZE + px) * 4;
-      img.data[idx] = rgb[0];
-      img.data[idx + 1] = rgb[1];
-      img.data[idx + 2] = rgb[2];
-      img.data[idx + 3] = 255;
+    const data = new Map(pixelData);
+    const raf = requestAnimationFrame(() => {
+      const img = ctx.createImageData(w, h);
+      for (let i = 0; i < img.data.length; i += 4) {
+        img.data[i] = EMPTY_COLOR[0];
+        img.data[i + 1] = EMPTY_COLOR[1];
+        img.data[i + 2] = EMPTY_COLOR[2];
+        img.data[i + 3] = 255;
+      }
+      data.forEach((pixel, id) => {
+        const rgb = colorForOwner(pixel.owner);
+        const px = Math.floor(id / GRID_SIZE);
+        const py = id % GRID_SIZE;
+        const idx = (py * GRID_SIZE + px) * 4;
+        img.data[idx] = rgb[0];
+        img.data[idx + 1] = rgb[1];
+        img.data[idx + 2] = rgb[2];
+        img.data[idx + 3] = 255;
+      });
+      ctx.putImageData(img, 0, 0);
+      imageDataRef.current = img;
     });
-    ctx.putImageData(img, 0, 0);
-    imageDataRef.current = img;
+    return () => cancelAnimationFrame(raf);
   }, [pixelData, loading]);
 
   useEffect(() => {
     let cancelled = false;
-    const merge = (next: Map<number, PixelData>) => {
-      if (cancelled) return;
-      setPixelData((prev) => {
-        const m = new Map(prev);
-        next.forEach((v, k) => m.set(k, v));
-        return m;
-      });
-    };
-
     const toPixelData = (p: { id: number; owner: string; price: number; forSale: boolean; exists: boolean }): PixelData => ({
       id: p.id,
       x: Math.floor(p.id / GRID_SIZE),
@@ -125,71 +121,70 @@ export function PixelGrid() {
       chain: p.exists ? "base" : undefined,
     });
 
+    function parseSolana(json: unknown): Map<number, PixelData> {
+      const out = new Map<number, PixelData>();
+      const pixels = (json as { pixels?: Record<string, { owner: string; listPrice: number; forSale: boolean }> }).pixels ?? {};
+      for (const [idStr, s] of Object.entries(pixels)) {
+        const id = parseInt(idStr, 10);
+        if (Number.isNaN(id)) continue;
+        out.set(id, {
+          id,
+          x: Math.floor(id / GRID_SIZE),
+          y: id % GRID_SIZE,
+          owner: s.owner,
+          price: s.listPrice,
+          forSale: s.forSale,
+          exists: true,
+          chain: "solana",
+        });
+      }
+      return out;
+    }
+
+    function parseBase(json: unknown): PixelData[] {
+      const pixels = (json as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> }).pixels ?? [];
+      return pixels.map(toPixelData);
+    }
+
     (async () => {
       setLoading(true);
       try {
-        // 1) Solana: one request for full range (or use chunk 0–TOTAL)
-        const solanaPromise = fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json());
-        // 2) First 10 Base chunks in parallel (0–100k)
-        const firstBasePromises = Array.from({ length: 10 }, (_, i) => {
-          const start = i * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, TOTAL);
-          return fetch(`/api/base-pixels?startId=${start}&endId=${end}`).then((r) => r.json());
-        });
-
-        const [solanaJson, ...firstBaseJsons] = await Promise.all([solanaPromise, ...firstBasePromises]);
+        // Fast first paint: only Solana + first 2 Base chunks (3 requests)
+        const [solanaJson, base0Json, base1Json] = await Promise.all([
+          fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json()),
+          fetch(`/api/base-pixels?startId=0&endId=${CHUNK_SIZE}`).then((r) => r.json()),
+          fetch(`/api/base-pixels?startId=${CHUNK_SIZE}&endId=${2 * CHUNK_SIZE}`).then((r) => r.json()),
+        ]);
         if (cancelled) return;
 
-        const solanaMap = new Map<number, PixelData>();
-        const solanaPixels = (solanaJson as { pixels?: Record<string, { owner: string; listPrice: number; forSale: boolean }> }).pixels ?? {};
-        for (const [idStr, s] of Object.entries(solanaPixels)) {
-          const id = parseInt(idStr, 10);
-          if (Number.isNaN(id)) continue;
-          solanaMap.set(id, {
-            id,
-            x: Math.floor(id / GRID_SIZE),
-            y: id % GRID_SIZE,
-            owner: s.owner,
-            price: s.listPrice,
-            forSale: s.forSale,
-            exists: true,
-            chain: "solana",
-          });
-        }
-        const solanaIds = new Set(solanaMap.keys());
-        merge(solanaMap);
+        const merged = new Map<number, PixelData>();
+        parseSolana(solanaJson).forEach((v, k) => merged.set(k, v));
+        const solanaIds = new Set(merged.keys());
+        [...parseBase(base0Json), ...parseBase(base1Json)].forEach((p) => {
+          if (!solanaIds.has(p.id)) merged.set(p.id, p);
+        });
+        setPixelData(merged);
+        setLoading(false);
 
-        for (const json of firstBaseJsons) {
-          const pixels = (json as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> }).pixels ?? [];
-          const baseMap = new Map<number, PixelData>();
-          pixels.forEach((p) => {
-            if (solanaIds.has(p.id)) return;
-            baseMap.set(p.id, toPixelData(p));
-          });
-          merge(baseMap);
-        }
-
-        if (!cancelled) setLoading(false);
-
-        // 3) Remaining Base chunks in waves of 10 (100k–1M)
-        for (let wave = 10; wave < 100 && !cancelled; wave++) {
+        // Rest of Base in background, 10 chunks in parallel per wave
+        for (let wave = 2; wave < 100 && !cancelled; wave += 10) {
           const promises = Array.from({ length: 10 }, (_, i) => {
-            const start = (wave * 10 + i) * CHUNK_SIZE;
+            const start = (wave + i) * CHUNK_SIZE;
             if (start >= TOTAL) return Promise.resolve({ pixels: [] });
             const end = Math.min(start + CHUNK_SIZE, TOTAL);
             return fetch(`/api/base-pixels?startId=${start}&endId=${end}`).then((r) => r.json());
           });
           const results = await Promise.all(promises);
           if (cancelled) return;
-          for (const json of results) {
-            const pixels = (json as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> }).pixels ?? [];
-            const baseMap = new Map<number, PixelData>();
-            pixels.forEach((p) => {
-              if (solanaIds.has(p.id)) return;
-              baseMap.set(p.id, toPixelData(p));
-            });
-            merge(baseMap);
-          }
+          setPixelData((prev) => {
+            const next = new Map(prev);
+            results.forEach((json) =>
+              parseBase(json).forEach((p) => {
+                if (!solanaIds.has(p.id)) next.set(p.id, p);
+              })
+            );
+            return next;
+          });
         }
       } catch {
         if (!cancelled) setLoading(false);
