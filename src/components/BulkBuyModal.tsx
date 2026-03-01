@@ -41,7 +41,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
   const total = baseIds.length + solanaIds.length;
 
   const runBaseBuys = async () => {
-    if (!walletClient || !baseAddress || baseIds.length === 0) return;
+    if (!walletClient || !baseAddress || !publicClient || baseIds.length === 0) return;
     const totalUsdc = BigInt(baseIds.length) * BigInt(1e6);
     const current = (await publicClient.readContract({
       address: USDC_BASE,
