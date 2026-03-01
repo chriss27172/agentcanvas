@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAccount } from "wagmi";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { PixelModal } from "./PixelModal";
+import { BulkBuyModal } from "./BulkBuyModal";
 import type { PixelData } from "@/lib/types";
 import { GRID_SIZE } from "@/config/contracts";
 
@@ -33,8 +36,13 @@ function colorForOwner(owner: string | null): [number, number, number] {
   return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
+const ZERO = "0x0000000000000000000000000000000000000000";
+
 export function PixelGrid() {
   const searchParams = useSearchParams();
+  const { address: baseAddress } = useAccount();
+  const { publicKey: solanaPubkey } = useWallet();
+  const solanaAddress = solanaPubkey?.toBase58() ?? null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageDataRef = useRef<ImageData | null>(null);
   const [pixelData, setPixelData] = useState<Map<number, PixelData>>(new Map());
@@ -51,6 +59,9 @@ export function PixelGrid() {
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  // Drag selection: { minX, minY, maxX, maxY } in grid coords (inclusive)
+  const [selection, setSelection] = useState<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Init canvas 1000×1000 once
   useEffect(() => {
@@ -158,21 +169,28 @@ export function PixelGrid() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleClick = useCallback(
+  const getCell = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = GRID_SIZE / rect.width;
+    const scaleY = GRID_SIZE / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX);
+    const y = Math.floor((e.clientY - rect.top) * scaleY);
+    if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return null;
+    return { x, y };
+  }, []);
+
+  const [dragPreview, setDragPreview] = useState<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+
+  const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = GRID_SIZE / rect.width;
-      const scaleY = GRID_SIZE / rect.height;
-      const x = Math.floor((e.clientX - rect.left) * scaleX);
-      const y = Math.floor((e.clientY - rect.top) * scaleY);
-      if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
-      const id = x * GRID_SIZE + y;
-      setSelectedId(id);
+      const cell = getCell(e);
+      if (!cell) return;
+      dragStartRef.current = cell;
+      setDragPreview(null);
     },
-    []
+    [getCell]
   );
 
   const handleMouseMove = useCallback(
@@ -186,17 +204,50 @@ export function PixelGrid() {
       const y = Math.floor((e.clientY - rect.top) * scaleY);
       if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
         setHoverId(null);
-        return;
+        if (!dragStartRef.current) return;
       }
       const id = x * GRID_SIZE + y;
       setHoverId(id);
       setHoverPos({ x: e.clientX, y: e.clientY });
+      const start = dragStartRef.current;
+      if (start && e.buttons === 1) {
+        const minX = Math.min(start.x, x);
+        const maxX = Math.max(start.x, x);
+        const minY = Math.min(start.y, y);
+        const maxY = Math.max(start.y, y);
+        setDragPreview({ minX, minY, maxX, maxY });
+      }
     },
-    []
+    [getCell]
+  );
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const cell = getCell(e);
+      const start = dragStartRef.current;
+      dragStartRef.current = null;
+      setDragPreview(null);
+      if (start && cell && (start.x !== cell.x || start.y !== cell.y)) {
+        const minX = Math.min(start.x, cell.x);
+        const maxX = Math.max(start.x, cell.x);
+        const minY = Math.min(start.y, cell.y);
+        const maxY = Math.max(start.y, cell.y);
+        setSelection({ minX, minY, maxX, maxY });
+        return;
+      }
+      if (cell) {
+        const id = cell.x * GRID_SIZE + cell.y;
+        setSelectedId(id);
+      }
+    },
+    [getCell]
   );
 
   const handleMouseLeave = useCallback(() => {
     setHoverId(null);
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    setDragPreview(null);
   }, []);
 
   const refetchPixel = useCallback(async (id: number) => {
@@ -246,10 +297,41 @@ export function PixelGrid() {
   const selectedData = selectedId !== null ? pixelData.get(selectedId) ?? null : null;
   const hoverData = hoverId !== null ? pixelData.get(hoverId) ?? null : null;
 
+  const selectionStats = useMemo(() => {
+    if (!selection) return null;
+    const ids: number[] = [];
+    for (let py = selection.minY; py <= selection.maxY; py++)
+      for (let px = selection.minX; px <= selection.maxX; px++) ids.push(px * GRID_SIZE + py);
+    let unclaimed = 0;
+    let listed = 0;
+    let ownedByYou = 0;
+    const listedItems: { id: number; price: number; owner: string; chain?: string }[] = [];
+    ids.forEach((id) => {
+      const p = pixelData.get(id);
+      if (!p) {
+        unclaimed++;
+        return;
+      }
+      if (p.owner && p.owner !== ZERO && (baseAddress?.toLowerCase() === p.owner.toLowerCase() || solanaAddress === p.owner)) {
+        ownedByYou++;
+        return;
+      }
+      if (p.forSale) {
+        listed++;
+        listedItems.push({ id, price: p.price, owner: p.owner, chain: p.chain });
+      } else if (!p.exists || p.owner === ZERO) {
+        unclaimed++;
+      }
+    });
+    return { ids, unclaimed, listed, ownedByYou, listedItems };
+  }, [selection, pixelData, baseAddress, solanaAddress]);
+
+  const [bulkBuyIds, setBulkBuyIds] = useState<number[] | null>(null);
+
   return (
     <div className="flex flex-col items-center gap-2 w-full max-w-full">
       <p className="text-center text-sm text-zinc-500">
-        Full 1000×1000 grid · Scroll to pan · Hover for owner · Click to buy or sell
+        Full 1000×1000 grid · Scroll to pan · Drag to select multiple · Hover for owner · Click to buy or sell
       </p>
       <div
         ref={containerRef}
@@ -266,12 +348,27 @@ export function PixelGrid() {
             ref={canvasRef}
             width={GRID_SIZE}
             height={GRID_SIZE}
-            className="cursor-pointer block shrink-0"
+            className="cursor-crosshair block shrink-0"
             style={{ width: GRID_SIZE, height: GRID_SIZE, imageRendering: "pixelated" }}
-            onClick={handleClick}
+            onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
           />
+          {(selection || dragPreview) && (() => {
+            const r = selection ?? dragPreview!;
+            const left = r.minX;
+            const top = r.minY;
+            const w = r.maxX - r.minX + 1;
+            const h = r.maxY - r.minY + 1;
+            return (
+              <div
+                className="pointer-events-none absolute border-2 border-emerald-400 bg-emerald-500/20"
+                style={{ left, top, width: w, height: h }}
+                aria-hidden
+              />
+            );
+          })()}
         {hoverId !== null && hoverData && (
           <div
             className="pointer-events-none fixed z-[100] w-64 -translate-x-1/2 -translate-y-full rounded-xl border border-zinc-600 bg-zinc-900 px-4 py-3 shadow-xl text-left"
@@ -300,6 +397,46 @@ export function PixelGrid() {
         )}
         </div>
       </div>
+      {selection && selectionStats && (
+        <div className="flex w-full max-w-2xl flex-wrap items-center justify-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900/90 px-4 py-3 text-sm">
+          <span className="text-zinc-300">
+            Selected <strong className="text-white">{selectionStats.ids.length}</strong> pixels:{" "}
+            <strong className="text-emerald-400">{selectionStats.unclaimed}</strong> unclaimed,{" "}
+            <strong className="text-amber-400">{selectionStats.listed}</strong> listed,{" "}
+            <strong className="text-violet-400">{selectionStats.ownedByYou}</strong> yours
+          </span>
+          {selectionStats.unclaimed > 0 && (
+            <button
+              type="button"
+              onClick={() => setBulkBuyIds(selectionStats.ids.filter((id) => {
+                const p = pixelData.get(id);
+                return !p || !p.exists || p.owner === ZERO;
+              }))}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-500"
+            >
+              Buy {selectionStats.unclaimed} unclaimed
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSelection(null)}
+            className="rounded bg-zinc-600 px-3 py-1.5 text-zinc-200 hover:bg-zinc-500"
+          >
+            Clear selection
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const idsStr = selectionStats.ids.join(",");
+              void navigator.clipboard.writeText(idsStr);
+            }}
+            className="rounded bg-zinc-600 px-3 py-1.5 text-zinc-200 hover:bg-zinc-500"
+            title="Copy pixel IDs for API / OpenClaw agents"
+          >
+            Copy IDs for agents
+          </button>
+        </div>
+      )}
       {selectedId !== null && (
         <PixelModal
           pixelId={selectedId}
@@ -307,6 +444,16 @@ export function PixelGrid() {
           onClose={() => setSelectedId(null)}
           onUpdate={() => {
             if (selectedId !== null) refetchPixel(selectedId);
+          }}
+        />
+      )}
+      {bulkBuyIds !== null && bulkBuyIds.length > 0 && (
+        <BulkBuyModal
+          pixelIds={bulkBuyIds}
+          pixelData={pixelData}
+          onClose={() => setBulkBuyIds(null)}
+          onUpdate={() => {
+            bulkBuyIds.forEach((id) => refetchPixel(id));
           }}
         />
       )}
