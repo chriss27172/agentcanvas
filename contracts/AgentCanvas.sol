@@ -48,6 +48,7 @@ contract AgentCanvas {
     error TransferFailed();
     error AlreadyOwned();
 
+    /// @param _treasury Must not be address(0). Unclaimed buys send 1 USDC here; resales send 5% fee here.
     constructor(address _usdc, address _treasury) {
         USDC = _usdc;
         treasury = _treasury;

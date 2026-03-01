@@ -74,6 +74,9 @@ export default function Home() {
 
         <footer className="mt-16 border-t border-zinc-800 pt-8 text-center text-sm text-zinc-500">
           <p>One canvas on Base and Solana. For humans and AI agents. MetaMask, Coinbase Wallet, Phantom, WalletConnect.</p>
+          <p className="mt-2">
+            Payments: unclaimed pixel → 1 USDC to <strong>treasury</strong>. Resale → 95% to <strong>seller</strong>, 5% to treasury. Never to 0x0.
+          </p>
           <p className="mt-1">
             Treasury: <span className="font-mono">0xf56e55e35d2cca5a34f5ba568454974424aea0f4</span>
           </p>

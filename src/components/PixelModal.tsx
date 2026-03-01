@@ -6,7 +6,7 @@ import { base } from "wagmi/chains";
 import { parseUnits } from "viem";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { AGENT_CANVAS_ADDRESS, USDC_BASE, GRID_SIZE } from "@/config/contracts";
+import { AGENT_CANVAS_ADDRESS, USDC_BASE, GRID_SIZE, TREASURY } from "@/config/contracts";
 import { AgentCanvasABI } from "@/abis/AgentCanvas";
 import { getUsdcAta } from "@/lib/solana";
 import { buildBuyPixelTx, buildBuyListedPixelTx } from "@/lib/solana-buy-tx";
@@ -50,12 +50,14 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
   const [status, setStatus] = useState<"idle" | "approving" | "buying" | "buying_solana" | "buying_listed_solana" | "listing" | "unlisting" | "listing_solana" | "unlisting_solana" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  const baseContractSet = AGENT_CANVAS_ADDRESS && AGENT_CANVAS_ADDRESS !== ZERO;
   const x = Math.floor(pixelId / GRID_SIZE);
   const y = pixelId % GRID_SIZE;
   const isOwnBase = address && data?.owner?.toLowerCase() === address.toLowerCase();
   const isOwnSolana = data?.chain === "solana" && solanaWallet?.publicKey?.toBase58() === data?.owner;
   const isOwn = isOwnBase || isOwnSolana;
-  const canBuyBase = data?.chain !== "solana" && (data?.exists ? data?.forSale : true);
+  const canBuyBase = baseContractSet && data?.chain !== "solana" && (data?.exists ? data?.forSale : true);
   const canBuySolana = !data?.exists || (data?.chain === "solana" && data?.forSale);
   const priceToPay = data?.exists && data?.forSale ? data.price : 1e6;
   const isListedSolana = data?.chain === "solana" && data?.forSale && !isOwn;
@@ -311,6 +313,15 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
             <p>Owner: {data.owner.slice(0, 10)}…{data.owner.slice(-8)}{data.chain === "solana" ? " (Solana)" : ""}</p>
             {data.forSale && <p>Price: {(data.price / 1e6).toFixed(2)} USDC</p>}
             {!data.exists && <p>Unclaimed — 1 USDC to buy (Base or Solana)</p>}
+            {!data.exists && (
+              <p className="text-xs text-zinc-500">Payment: 1 USDC → treasury (not to 0x0). You become the owner.</p>
+            )}
+            {data.exists && data.forSale && data.chain !== "solana" && (
+              <p className="text-xs text-zinc-500">Payment: 95% to seller, 5% fee to treasury.</p>
+            )}
+            {data?.chain !== "solana" && !baseContractSet && (
+              <p className="text-amber-400">Base contract not configured. Set NEXT_PUBLIC_AGENT_CANVAS_ADDRESS (deploy with treasury = {TREASURY.slice(0, 10)}…).</p>
+            )}
           </div>
         )}
         {errorMsg && <p className="mb-2 text-sm text-red-400">{errorMsg}</p>}
