@@ -63,7 +63,7 @@ export function PixelGrid() {
   const [selection, setSelection] = useState<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Init canvas 1000×1000 once
+  // Init canvas 1000×1000 and paint gray so it's never blank
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -71,16 +71,24 @@ export function PixelGrid() {
     canvas.height = GRID_SIZE;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    imageDataRef.current = ctx.createImageData(GRID_SIZE, GRID_SIZE);
+    const img = ctx.createImageData(GRID_SIZE, GRID_SIZE);
+    for (let i = 0; i < img.data.length; i += 4) {
+      img.data[i] = EMPTY_COLOR[0];
+      img.data[i + 1] = EMPTY_COLOR[1];
+      img.data[i + 2] = EMPTY_COLOR[2];
+      img.data[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    imageDataRef.current = img;
   }, []);
 
-  // Draw: fill gray then paint every pixel from pixelData (sync, no rAF)
+  // Draw: create fresh ImageData each time so we never depend on stale ref; fill gray then paint pixelData
   useEffect(() => {
     const canvas = canvasRef.current;
-    const img = imageDataRef.current;
-    if (!canvas || !img) return;
+    if (!canvas || canvas.width !== GRID_SIZE || canvas.height !== GRID_SIZE) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const img = ctx.createImageData(GRID_SIZE, GRID_SIZE);
     for (let i = 0; i < img.data.length; i += 4) {
       img.data[i] = EMPTY_COLOR[0];
       img.data[i + 1] = EMPTY_COLOR[1];
@@ -98,6 +106,19 @@ export function PixelGrid() {
       img.data[idx + 3] = 255;
     });
     ctx.putImageData(img, 0, 0);
+    // Subtle grid every 100px so users see where they click when pixels look uniform
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    for (let i = 100; i < GRID_SIZE; i += 100) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, GRID_SIZE);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(GRID_SIZE, i);
+      ctx.stroke();
+    }
   }, [pixelData, loading]);
 
   useEffect(() => {
@@ -138,8 +159,12 @@ export function PixelGrid() {
       return pixels.map(toPixelData);
     }
 
+    let timeout: ReturnType<typeof setTimeout> | null = null;
     (async () => {
       setLoading(true);
+      timeout = setTimeout(() => {
+        if (!cancelled) setLoading(false);
+      }, 8000);
       try {
         // 1) Solana first (one request) — show it right away
         const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json());
@@ -147,6 +172,7 @@ export function PixelGrid() {
         const solanaMap = parseSolana(solanaJson);
         setPixelData(solanaMap);
         setLoading(false);
+        if (timeout) clearTimeout(timeout);
 
         // 2) Base in chunks, merge as we go (background)
         const solanaIds = new Set(solanaMap.keys());
@@ -163,10 +189,14 @@ export function PixelGrid() {
           });
         }
       } catch {
+        if (timeout) clearTimeout(timeout);
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (timeout) clearTimeout(timeout);
+    };
   }, []);
 
   const getCell = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
