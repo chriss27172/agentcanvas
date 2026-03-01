@@ -1,3 +1,7 @@
+// Site
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://agentcanvas.space";
+
 // Base mainnet (EVM)
 export const BASE_CHAIN_ID = 8453;
 

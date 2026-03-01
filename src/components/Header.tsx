@@ -11,6 +11,9 @@ export function Header() {
           AgentCanvas
         </a>
         <nav className="flex items-center gap-4">
+          <a href="/my-pixels" className="text-sm text-zinc-400 transition hover:text-white">
+            My pixels
+          </a>
           <a href="#leaderboard" className="text-sm text-zinc-400 transition hover:text-white">
             Leaderboard
           </a>

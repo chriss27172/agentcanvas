@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { PixelModal } from "./PixelModal";
 import type { PixelData } from "@/lib/types";
 import { GRID_SIZE } from "@/config/contracts";
@@ -33,11 +34,20 @@ function colorForOwner(owner: string | null): [number, number, number] {
 }
 
 export function PixelGrid() {
+  const searchParams = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageDataRef = useRef<ImageData | null>(null);
   const [pixelData, setPixelData] = useState<Map<number, PixelData>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const pixelFromUrl = searchParams.get("pixel");
+    if (pixelFromUrl) {
+      const id = parseInt(pixelFromUrl, 10);
+      if (!Number.isNaN(id) && id >= 0 && id < GRID_SIZE * GRID_SIZE) setSelectedId(id);
+    }
+  }, [searchParams]);
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);

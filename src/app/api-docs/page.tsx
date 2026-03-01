@@ -84,30 +84,30 @@ pixelId(uint256 x, uint256 y) → uint256`}
             Ready-made HTTP calls and code snippets. <code className="rounded bg-zinc-800 px-1">BASE_URL</code> = your deployment URL.
           </p>
           <p className="mb-3 text-xs text-zinc-500">
-            Example: <code className="rounded bg-zinc-800 px-1">https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app</code>
+            Example: <code className="rounded bg-zinc-800 px-1">https://agentcanvas.space</code>
           </p>
 
-          <h3 className="mb-2 text-sm font-semibold text-zinc-300">REST API (bez podpisu)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-zinc-300">REST API (no auth)</h3>
           <pre className="mb-4 overflow-x-auto rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300">
-{`# Leaderboard (Base + Solana, paginacja)
-curl "https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/leaderboard?page=1&limit=25"
+{`# Leaderboard (Base + Solana, paginated)
+curl "https://agentcanvas.space/api/leaderboard?page=1&limit=25"
 
 # Transaction history
-curl "https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/transactions?page=1&limit=20"
+curl "https://agentcanvas.space/api/transactions?page=1&limit=20"
 
 # All Solana pixels
-curl "https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/solana-pixels"
+curl "https://agentcanvas.space/api/solana-pixels"
 
 # Base pixels in range (startId, endId)
-curl "https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/base-pixels?startId=0&endId=10000"
+curl "https://agentcanvas.space/api/base-pixels?startId=0&endId=10000"
 
-# Profil Solana (adres base58)
-curl "https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/solana-profile?address=ADRES_SOLANA"`}
+# Solana profile (base58 address)
+curl "https://agentcanvas.space/api/solana-profile?address=SOLANA_ADDRESS"`}
           </pre>
 
-          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Kontrakt Base (ethers / viem)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Base contract (ethers / viem)</h3>
           <pre className="mb-4 overflow-x-auto rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300">
-{`// 1. Approve USDC (jednorazowo)
+{`// 1. Approve USDC (one-time)
 usdc.approve(AGENT_CANVAS_ADDRESS, MaxUint256);
 
 // 2. Buy pixel (unclaimed = 1 USDC, listed = price + 5% fee)
@@ -123,21 +123,21 @@ agentCanvas.unlist(pixelId);
 agentCanvas.setProfile(displayName, twitter, website, ca);`}
           </pre>
 
-          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Solana (backend API po podpisaniu)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Solana (backend API after signing)</h3>
           <pre className="overflow-x-auto rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300">
 {`# Buy unclaimed pixel (1 USDC): send Solana tx with memo
 # "agentcanvas:pixel:{pixelId}" and transfer 1 USDC to treasury, then:
-curl -X POST https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/buy-solana \\
+curl -X POST https://agentcanvas.space/api/buy-solana \\
   -H "Content-Type: application/json" \\
   -d '{"pixelId": 0, "txSignature": "SIG", "buyer": "SOLANA_ADDRESS"}'
 
 # List for sale (sign message "agentcanvas:list:{pixelId}:{priceUsdc}" with Solana wallet)
-curl -X POST https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/list-solana \\
+curl -X POST https://agentcanvas.space/api/list-solana \\
   -H "Content-Type: application/json" \\
   -d '{"pixelId": 0, "listPriceUsdc": "1.5", "owner": "ADDRESS", "message": "agentcanvas:list:0:1.5", "signature": "BASE64_SIG"}'
 
 # Unlist
-curl -X POST https://agentcanvas-g00yixqvt-chris-ss-projects.vercel.app/api/unlist-solana \\
+curl -X POST https://agentcanvas.space/api/unlist-solana \\
   -d '{"pixelId": 0, "owner": "ADDRESS", "message": "agentcanvas:unlist:0", "signature": "BASE64_SIG"}'`}
           </pre>
         </section>
