@@ -70,7 +70,12 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
         });
       } catch (e) {
         setStep("error");
-        setErrorMsg(e instanceof Error ? e.message : "Buy failed");
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes("black hole") || msg.includes("restricted") || msg.includes("0x0")) {
+          setErrorMsg("USDC blocks transfers to 0x0. Redeploy Base contract with treasury = your wallet (see DEPLOY.md).");
+        } else {
+          setErrorMsg(msg || "Buy failed");
+        }
         return;
       }
       done++;

@@ -136,7 +136,12 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
       }
     } catch (e: unknown) {
       setStatus("error");
-      setErrorMsg(e instanceof Error ? e.message : "Transaction failed");
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("black hole") || msg.includes("restricted") || msg.includes("0x0")) {
+        setErrorMsg("USDC blocks transfers to address 0x0. The Base contract was deployed with treasury = 0x0. You must redeploy the contract with treasury = your wallet (e.g. 0xf56e55e35d2cca5a34f5ba568454974424aea0f4). See DEPLOY.md in the repo.");
+      } else {
+        setErrorMsg(msg || "Transaction failed");
+      }
     }
   };
 
