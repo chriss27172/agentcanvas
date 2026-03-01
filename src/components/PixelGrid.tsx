@@ -246,13 +246,14 @@ export function PixelGrid() {
   const hoverData = hoverId !== null ? pixelData.get(hoverId) ?? null : null;
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-2 w-full max-w-full">
       <p className="text-center text-sm text-zinc-500">
-        Cała siatka 1000×1000 · Najedź na piksel — właściciel · Kliknij — kup/sprzedaj
+        Cała siatka 1000×1000 · Najedź — właściciel · Kliknij — kup/sprzedaj
       </p>
       <div
         ref={containerRef}
-        className="relative w-full max-w-[min(90vw,85vh)] aspect-square rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden"
+        className="relative rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden flex-shrink-0"
+        style={{ width: "min(92vw, 62vh)", height: "min(92vw, 62vh)" }}
       >
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/80 text-zinc-500 text-sm">
@@ -263,7 +264,7 @@ export function PixelGrid() {
           ref={canvasRef}
           width={GRID_SIZE}
           height={GRID_SIZE}
-          className="w-full h-full cursor-pointer block"
+          className="w-full h-full cursor-pointer block object-contain"
           style={{ imageRendering: "pixelated" }}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
