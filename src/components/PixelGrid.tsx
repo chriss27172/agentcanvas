@@ -52,7 +52,7 @@ export function PixelGrid() {
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Paint gray immediately so the canvas is never blank
+  // Init canvas 1000×1000 once
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -60,52 +60,33 @@ export function PixelGrid() {
     canvas.height = GRID_SIZE;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const img = ctx.createImageData(GRID_SIZE, GRID_SIZE);
+    imageDataRef.current = ctx.createImageData(GRID_SIZE, GRID_SIZE);
+  }, []);
+
+  // Draw: fill gray then paint every pixel from pixelData (sync, no rAF)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const img = imageDataRef.current;
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     for (let i = 0; i < img.data.length; i += 4) {
       img.data[i] = EMPTY_COLOR[0];
       img.data[i + 1] = EMPTY_COLOR[1];
       img.data[i + 2] = EMPTY_COLOR[2];
       img.data[i + 3] = 255;
     }
-    ctx.putImageData(img, 0, 0);
-    imageDataRef.current = img;
-  }, []);
-
-  // Redraw whenever pixelData or loading changes. Use requestAnimationFrame so paint runs after layout.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const w = GRID_SIZE;
-    const h = GRID_SIZE;
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const data = new Map(pixelData);
-    const raf = requestAnimationFrame(() => {
-      const img = ctx.createImageData(w, h);
-      for (let i = 0; i < img.data.length; i += 4) {
-        img.data[i] = EMPTY_COLOR[0];
-        img.data[i + 1] = EMPTY_COLOR[1];
-        img.data[i + 2] = EMPTY_COLOR[2];
-        img.data[i + 3] = 255;
-      }
-      data.forEach((pixel, id) => {
-        const rgb = colorForOwner(pixel.owner);
-        const px = Math.floor(id / GRID_SIZE);
-        const py = id % GRID_SIZE;
-        const idx = (py * GRID_SIZE + px) * 4;
-        img.data[idx] = rgb[0];
-        img.data[idx + 1] = rgb[1];
-        img.data[idx + 2] = rgb[2];
-        img.data[idx + 3] = 255;
-      });
-      ctx.putImageData(img, 0, 0);
-      imageDataRef.current = img;
+    pixelData.forEach((pixel, id) => {
+      const rgb = colorForOwner(pixel.owner);
+      const px = Math.floor(id / GRID_SIZE);
+      const py = id % GRID_SIZE;
+      const idx = (py * GRID_SIZE + px) * 4;
+      img.data[idx] = rgb[0];
+      img.data[idx + 1] = rgb[1];
+      img.data[idx + 2] = rgb[2];
+      img.data[idx + 3] = 255;
     });
-    return () => cancelAnimationFrame(raf);
+    ctx.putImageData(img, 0, 0);
   }, [pixelData, loading]);
 
   useEffect(() => {
@@ -149,40 +130,24 @@ export function PixelGrid() {
     (async () => {
       setLoading(true);
       try {
-        // Fast first paint: only Solana + first 2 Base chunks (3 requests)
-        const [solanaJson, base0Json, base1Json] = await Promise.all([
-          fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json()),
-          fetch(`/api/base-pixels?startId=0&endId=${CHUNK_SIZE}`).then((r) => r.json()),
-          fetch(`/api/base-pixels?startId=${CHUNK_SIZE}&endId=${2 * CHUNK_SIZE}`).then((r) => r.json()),
-        ]);
+        // 1) Solana first (one request) — show it right away
+        const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json());
         if (cancelled) return;
-
-        const merged = new Map<number, PixelData>();
-        parseSolana(solanaJson).forEach((v, k) => merged.set(k, v));
-        const solanaIds = new Set(merged.keys());
-        [...parseBase(base0Json), ...parseBase(base1Json)].forEach((p) => {
-          if (!solanaIds.has(p.id)) merged.set(p.id, p);
-        });
-        setPixelData(merged);
+        const solanaMap = parseSolana(solanaJson);
+        setPixelData(solanaMap);
         setLoading(false);
 
-        // Rest of Base in background, 10 chunks in parallel per wave
-        for (let wave = 2; wave < 100 && !cancelled; wave += 10) {
-          const promises = Array.from({ length: 10 }, (_, i) => {
-            const start = (wave + i) * CHUNK_SIZE;
-            if (start >= TOTAL) return Promise.resolve({ pixels: [] });
-            const end = Math.min(start + CHUNK_SIZE, TOTAL);
-            return fetch(`/api/base-pixels?startId=${start}&endId=${end}`).then((r) => r.json());
-          });
-          const results = await Promise.all(promises);
+        // 2) Base in chunks, merge as we go (background)
+        const solanaIds = new Set(solanaMap.keys());
+        for (let start = 0; start < TOTAL && !cancelled; start += CHUNK_SIZE) {
+          const end = Math.min(start + CHUNK_SIZE, TOTAL);
+          const json = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`).then((r) => r.json());
           if (cancelled) return;
           setPixelData((prev) => {
             const next = new Map(prev);
-            results.forEach((json) =>
-              parseBase(json).forEach((p) => {
-                if (!solanaIds.has(p.id)) next.set(p.id, p);
-              })
-            );
+            parseBase(json).forEach((p) => {
+              if (!solanaIds.has(p.id)) next.set(p.id, p);
+            });
             return next;
           });
         }
@@ -284,28 +249,29 @@ export function PixelGrid() {
   return (
     <div className="flex flex-col items-center gap-2 w-full max-w-full">
       <p className="text-center text-sm text-zinc-500">
-        Full 1000×1000 grid · Hover for owner · Click to buy or sell
+        Full 1000×1000 grid · Scroll to pan · Hover for owner · Click to buy or sell
       </p>
       <div
         ref={containerRef}
-        className="relative rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden flex-shrink-0"
-        style={{ width: "min(92vw, 62vh)", height: "min(92vw, 62vh)" }}
+        className="relative rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-auto"
+        style={{ maxWidth: "min(1000px, 96vw)", maxHeight: "70vh" }}
       >
-        {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/80 text-zinc-500 text-sm">
-            Loading pixels…
-          </div>
-        )}
-        <canvas
-          ref={canvasRef}
-          width={GRID_SIZE}
-          height={GRID_SIZE}
-          className="w-full h-full cursor-pointer block object-contain"
-          style={{ imageRendering: "pixelated" }}
-          onClick={handleClick}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        />
+        <div className="relative" style={{ width: GRID_SIZE, height: GRID_SIZE }}>
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/80 text-zinc-500 text-sm">
+              Loading pixels…
+            </div>
+          )}
+          <canvas
+            ref={canvasRef}
+            width={GRID_SIZE}
+            height={GRID_SIZE}
+            className="cursor-pointer block shrink-0"
+            style={{ width: GRID_SIZE, height: GRID_SIZE, imageRendering: "pixelated" }}
+            onClick={handleClick}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          />
         {hoverId !== null && hoverData && (
           <div
             className="pointer-events-none fixed z-[100] w-64 -translate-x-1/2 -translate-y-full rounded-xl border border-zinc-600 bg-zinc-900 px-4 py-3 shadow-xl text-left"
@@ -332,6 +298,7 @@ export function PixelGrid() {
             <div className="mt-2 text-xs text-emerald-400">Click to buy or sell</div>
           </div>
         )}
+        </div>
       </div>
       {selectedId !== null && (
         <PixelModal

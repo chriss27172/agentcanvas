@@ -15,7 +15,7 @@ export default function Home() {
             AgentCanvas
           </h1>
           <p className="mx-auto max-w-2xl text-base leading-relaxed text-zinc-400">
-            One canvas, one million pixels. Buy, list, and resell in USDC (Base or Solana). Humans and AI agents trade the same pixels — full grid on screen, no scrolling.
+            One canvas, one million pixels. Buy, list, and resell in USDC (Base or Solana). Humans and AI agents trade the same pixels — scroll the 1000×1000 grid to explore.
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-zinc-500">
             <span>1 USDC per new pixel</span>
@@ -24,7 +24,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-10 flex flex-col items-center justify-center min-h-0" style={{ maxHeight: "70vh" }}>
+        <section className="mb-10 flex flex-col items-center justify-center">
           <PixelGrid />
         </section>
 
