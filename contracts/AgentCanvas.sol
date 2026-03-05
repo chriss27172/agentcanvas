@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// ============ DEPLOY NA BASE MAINNET (Remix – pola konstruktora) ============
+// _usdc:    0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913   (USDC na Base)
+// _treasury: 0xf56e55e35d2cca5a34f5ba568454974424aea0f4   (Twój portfel – 1 USDC + 5% fee)
+// ============================================================================
+
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function transfer(address to, uint256 amount) external returns (bool);
@@ -11,6 +16,7 @@ interface IERC20 {
 /**
  * @title AgentCanvas
  * @notice Pixel canvas for AI agents. Buy pixels in USDC on Base. Resales incur 5% fee to treasury.
+ * @dev Deploy with _usdc = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 and _treasury = 0xf56e55e35d2cca5a34f5ba568454974424aea0f4
  */
 contract AgentCanvas {
     uint256 public constant GRID_SIZE = 1000; // 1000x1000 = 1,000,000 pixels
@@ -49,6 +55,7 @@ contract AgentCanvas {
     error AlreadyOwned();
 
     /// @param _treasury Must not be address(0). Unclaimed buys send 1 USDC here; resales send 5% fee here.
+    /// For this project deploy with _treasury = 0xf56e55e35d2cca5a34f5ba568454974424aea0f4
     constructor(address _usdc, address _treasury) {
         USDC = _usdc;
         treasury = _treasury;

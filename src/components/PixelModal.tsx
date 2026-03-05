@@ -325,7 +325,7 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
               <p className="text-xs text-zinc-500">Payment: 95% to seller, 5% fee to project wallet.</p>
             )}
             {data?.chain !== "solana" && !baseContractSet && (
-              <p className="text-amber-400">Base contract not configured. Set NEXT_PUBLIC_AGENT_CANVAS_ADDRESS (deploy with treasury = {TREASURY.slice(0, 10)}…).</p>
+              <p className="text-amber-400">Base contract not configured. Set NEXT_PUBLIC_AGENT_CANVAS_ADDRESS (deploy with treasury = 0xf56e55e3…a0f4).</p>
             )}
           </div>
         )}

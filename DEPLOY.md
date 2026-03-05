@@ -21,7 +21,7 @@ constructor(address _usdc, address _treasury)
 | Argument   | Value |
 |-----------|--------|
 | `_usdc`   | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (USDC on Base) |
-| `_treasury` | **Your Base wallet address** (where you want 1 USDC per unclaimed pixel and 5% of resales). **Must NOT be `0x0`** or USDC will reject. |
+| `_treasury` | **0xf56e55e35d2cca5a34f5ba568454974424aea0f4** (project wallet). Must NOT be `0x0` or USDC will reject. |
 
 ### Option A: Remix
 
@@ -31,7 +31,7 @@ constructor(address _usdc, address _treasury)
 4. Connect MetaMask to **Base mainnet**.
 5. Deploy with “Injected Provider”, then in the constructor pass:
    - `_usdc`: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-   - `_treasury`: your wallet address (the one that should receive 1 USDC per new pixel and 5% of resales).
+   - `_treasury`: `0xf56e55e35d2cca5a34f5ba568454974424aea0f4` (project wallet).
 6. Copy the deployed contract address.
 
 ### Option B: Foundry
@@ -43,7 +43,7 @@ forge create --rpc-url https://mainnet.base.org \
   --constructor-args 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 0xf56e55e35d2cca5a34f5ba568454974424aea0f4
 ```
 
-Replace `0xf56e...` with your treasury wallet and `YOUR_PRIVATE_KEY` with the deployer key.
+Replace `YOUR_PRIVATE_KEY` with the deployer key. Treasury is 0xf56e55e35d2cca5a34f5ba568454974424aea0f4.
 
 ## 2. Set env in the app
 
@@ -52,7 +52,7 @@ In Vercel or `.env.local`:
 ```env
 # Base: your contract (deployed with treasury = your wallet) and that wallet
 NEXT_PUBLIC_AGENT_CANVAS_ADDRESS=0xYourNewContractAddress
-NEXT_PUBLIC_TREASURY_BASE=0xYourBaseWalletAddress
+NEXT_PUBLIC_TREASURY_BASE=0xf56e55e35d2cca5a34f5ba568454974424aea0f4
 
 # Solana: your wallet (receives 1 USDC per unclaimed pixel and 5% of resales; must have USDC ATA)
 NEXT_PUBLIC_TREASURY_SOLANA=YourSolanaWalletBase58
