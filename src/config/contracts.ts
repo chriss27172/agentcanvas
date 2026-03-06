@@ -14,7 +14,7 @@ export const TREASURY =
 // Deploy AgentCanvas with USDC_BASE and TREASURY, then set address here
 export const AGENT_CANVAS_ADDRESS =
   (process.env.NEXT_PUBLIC_AGENT_CANVAS_ADDRESS as `0x${string}`) ||
-  ("0x0000000000000000000000000000000000000000" as const);
+  ("0xDBE2419328ABBf9De8C9433d9D056E7677Db75D8" as const);
 
 export const GRID_SIZE = 1000;
 export const INITIAL_PRICE_USDC = "1";
