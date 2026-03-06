@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         address: AGENT_CANVAS_ADDRESS,
         abi: AgentCanvasABI,
         eventName: "PixelBought",
-        fromBlock: 0n,
+        fromBlock: BigInt(0),
       });
       const byOwner = new Map<string, number>();
       for (const e of events) {
