@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         eventName: "PixelListed",
         fromBlock: BigInt(0),
       });
-      const byBlock = [...events].sort((a, b) => Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n)));
+      const byBlock = [...events].sort((a, b) => Number((b.blockNumber ?? BigInt(0)) - (a.blockNumber ?? BigInt(0))));
       const seen = new Set<number>();
       const idsToCheck: number[] = [];
       for (const e of byBlock) {
