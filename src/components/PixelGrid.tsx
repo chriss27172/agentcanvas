@@ -381,9 +381,22 @@ export function PixelGrid() {
       <div
         ref={containerRef}
         className="relative rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-auto"
-        style={{ maxWidth: "min(1000px, 96vw)", maxHeight: "70vh" }}
+        style={{
+          width: "100%",
+          maxWidth: 1000,
+          height: "min(85vh, 1000px)",
+          minHeight: 400,
+        }}
       >
-        <div className="relative" style={{ width: GRID_SIZE, height: GRID_SIZE }}>
+        <div
+          className="relative shrink-0"
+          style={{
+            width: `${GRID_SIZE}px`,
+            height: `${GRID_SIZE}px`,
+            minWidth: `${GRID_SIZE}px`,
+            minHeight: `${GRID_SIZE}px`,
+          }}
+        >
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/80 text-zinc-500 text-sm">
               Loading pixels…
@@ -394,7 +407,13 @@ export function PixelGrid() {
             width={GRID_SIZE}
             height={GRID_SIZE}
             className="cursor-crosshair block shrink-0"
-            style={{ width: GRID_SIZE, height: GRID_SIZE, imageRendering: "pixelated" }}
+            style={{
+              width: `${GRID_SIZE}px`,
+              height: `${GRID_SIZE}px`,
+              minWidth: `${GRID_SIZE}px`,
+              minHeight: `${GRID_SIZE}px`,
+              imageRendering: "pixelated",
+            }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
