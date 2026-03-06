@@ -4,6 +4,9 @@ export const SITE_URL =
 
 // Base mainnet (EVM)
 export const BASE_CHAIN_ID = 8453;
+/** RPC for Base; use explicit URL so API reads are reliable (avoid default rate limits). */
+export const BASE_RPC_URL =
+  process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org";
 
 export const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 /** Your wallet on Base: receives 100% for unclaimed pixels, 5% fee on resales. Deploy contract with this as treasury. */

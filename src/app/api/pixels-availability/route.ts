@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import { AGENT_CANVAS_ADDRESS, GRID_SIZE } from "@/config/contracts";
+import { AGENT_CANVAS_ADDRESS, GRID_SIZE, BASE_RPC_URL } from "@/config/contracts";
 import { AgentCanvasABI } from "@/abis/AgentCanvas";
 import { getSolanaPixelsInRange } from "@/lib/solana-store";
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const solanaMap = await getSolanaPixelsInRange(startId, endId);
 
   if (AGENT_CANVAS_ADDRESS && AGENT_CANVAS_ADDRESS !== ZERO) {
-    const client = createPublicClient({ chain: base, transport: http() });
+    const client = createPublicClient({ chain: base, transport: http(BASE_RPC_URL) });
     for (let id = startId; id < endId; id += BATCH) {
       const batchEnd = Math.min(id + BATCH, endId);
       const batch = await Promise.all(

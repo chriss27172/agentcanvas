@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { Connection } from "@solana/web3.js";
-import { AGENT_CANVAS_ADDRESS, GRID_SIZE, SOLANA_RPC } from "@/config/contracts";
+import { AGENT_CANVAS_ADDRESS, BASE_RPC_URL, GRID_SIZE, SOLANA_RPC } from "@/config/contracts";
 import { AgentCanvasABI } from "@/abis/AgentCanvas";
 import { getSolanaPixel, setSolanaPixel, appendSolanaEvent } from "@/lib/solana-store";
 import { verifySolanaBuyTx } from "@/lib/verify-solana-buy";
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (AGENT_CANVAS_ADDRESS && AGENT_CANVAS_ADDRESS !== "0x0000000000000000000000000000000000000000") {
       const client = createPublicClient({
         chain: base,
-        transport: http(),
+        transport: http(BASE_RPC_URL),
       });
       const [owner, , , exists] = await client.readContract({
         address: AGENT_CANVAS_ADDRESS,

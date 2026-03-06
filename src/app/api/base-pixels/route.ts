@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import { AGENT_CANVAS_ADDRESS, GRID_SIZE } from "@/config/contracts";
+import { AGENT_CANVAS_ADDRESS, GRID_SIZE, BASE_RPC_URL } from "@/config/contracts";
 import { AgentCanvasABI } from "@/abis/AgentCanvas";
 
 export const dynamic = "force-dynamic";
@@ -31,39 +31,57 @@ export async function GET(request: NextRequest) {
 
   const client = createPublicClient({
     chain: base,
-    transport: http(),
+    transport: http(BASE_RPC_URL),
   });
 
   const pixels: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> = [];
 
+  const readPixel = async (pixelId: number): Promise<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> => {
+    try {
+      const [owner, price, forSale, exists] = await client.readContract({
+        address: AGENT_CANVAS_ADDRESS,
+        abi: AgentCanvasABI,
+        functionName: "getPixel",
+        args: [BigInt(pixelId)],
+      });
+      return {
+        id: pixelId,
+        owner: owner as string,
+        price: Number(price),
+        forSale: forSale as boolean,
+        exists: exists as boolean,
+      };
+    } catch {
+      try {
+        const [owner, price, forSale, exists] = await client.readContract({
+          address: AGENT_CANVAS_ADDRESS,
+          abi: AgentCanvasABI,
+          functionName: "getPixel",
+          args: [BigInt(pixelId)],
+        });
+        return {
+          id: pixelId,
+          owner: owner as string,
+          price: Number(price),
+          forSale: forSale as boolean,
+          exists: exists as boolean,
+        };
+      } catch {
+        return {
+          id: pixelId,
+          owner: "0x0000000000000000000000000000000000000000",
+          price: 0,
+          forSale: false,
+          exists: false,
+        };
+      }
+    }
+  };
+
   for (let id = startId; id < endId; id += BATCH) {
     const batchEnd = Math.min(id + BATCH, endId);
     const batch = await Promise.all(
-      Array.from({ length: batchEnd - id }, (_, i) => id + i).map(async (pixelId) => {
-        try {
-          const [owner, price, forSale, exists] = await client.readContract({
-            address: AGENT_CANVAS_ADDRESS,
-            abi: AgentCanvasABI,
-            functionName: "getPixel",
-            args: [BigInt(pixelId)],
-          });
-          return {
-            id: pixelId,
-            owner: owner as string,
-            price: Number(price),
-            forSale: forSale as boolean,
-            exists: exists as boolean,
-          };
-        } catch {
-          return {
-            id: pixelId,
-            owner: "0x0000000000000000000000000000000000000000",
-            price: 0,
-            forSale: false,
-            exists: false,
-          };
-        }
-      })
+      Array.from({ length: batchEnd - id }, (_, i) => id + i).map((pixelId) => readPixel(pixelId))
     );
     pixels.push(...batch);
   }

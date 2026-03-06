@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import { AGENT_CANVAS_ADDRESS } from "@/config/contracts";
+import { AGENT_CANVAS_ADDRESS, BASE_RPC_URL } from "@/config/contracts";
 import { AgentCanvasABI } from "@/abis/AgentCanvas";
 import { getAllSolanaPixelIds, getSolanaPixel } from "@/lib/solana-store";
 
@@ -29,13 +29,13 @@ export async function GET(request: NextRequest) {
     try {
       const client = createPublicClient({
         chain: base,
-        transport: http(),
+        transport: http(BASE_RPC_URL),
       });
       const events = await client.getContractEvents({
         address: AGENT_CANVAS_ADDRESS,
         abi: AgentCanvasABI,
         eventName: "PixelBought",
-        fromBlock: BigInt(0),
+        fromBlock: 0n,
       });
       const byOwner = new Map<string, number>();
       for (const e of events) {

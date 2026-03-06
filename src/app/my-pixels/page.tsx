@@ -64,7 +64,7 @@ export default function MyPixelsPage() {
       for (let start = 0; start < GRID_SIZE * GRID_SIZE && !cancelled; start += CHUNK) {
         const end = Math.min(start + CHUNK, GRID_SIZE * GRID_SIZE);
         try {
-          const res = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`);
+          const res = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`, { cache: "no-store" });
           const json = (await res.json()) as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> };
           const list = json.pixels ?? [];
           list.forEach((p) => {
