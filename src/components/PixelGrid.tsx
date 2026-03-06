@@ -375,6 +375,9 @@ export function PixelGrid() {
       <p className="text-center text-sm text-zinc-500">
         Full 1000×1000 grid · Scroll to pan · Drag to select multiple · Hover for owner · Click to buy or sell
       </p>
+      <p className="text-center text-xs text-zinc-600 mt-0.5">
+        Gray = unclaimed (1 USDC) · Colored = owned (color by owner) · Listed pixels show price on hover
+      </p>
       <div
         ref={containerRef}
         className="relative rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-auto"
@@ -417,22 +420,26 @@ export function PixelGrid() {
             style={{ left: hoverPos.x, top: hoverPos.y - 12 }}
           >
             <div className="mb-1.5 text-xs font-medium text-zinc-400">
-              Pixel ({hoverData.x}, {hoverData.y})
+              Pixel ({hoverData.x}, {hoverData.y}) · ID {hoverData.id}
             </div>
             {hoverData.owner && hoverData.owner !== "0x0000000000000000000000000000000000000000" ? (
               <>
-                <div className="font-mono text-xs text-zinc-300 truncate">
-                  {hoverData.owner.slice(0, 8)}…{hoverData.owner.slice(-6)}
-                  {hoverData.chain === "solana" ? " (Solana)" : ""}
+                <div className="text-xs text-zinc-300">
+                  <span className="text-emerald-400">Owned</span> by {hoverData.owner.slice(0, 8)}…{hoverData.owner.slice(-6)}
+                  {hoverData.chain === "solana" ? " (Solana)" : " (Base)"}
                 </div>
-                {hoverData.forSale && (
+                {hoverData.forSale ? (
                   <div className="mt-1.5 text-xs text-amber-400">
-                    {(hoverData.price / 1e6).toFixed(2)} USDC
+                    Listed for <strong>{(hoverData.price / 1e6).toFixed(2)} USDC</strong> · Click to buy
                   </div>
+                ) : (
+                  <div className="mt-1.5 text-xs text-zinc-400">Not for sale · Click to list or view</div>
                 )}
               </>
             ) : (
-              <div className="text-sm text-zinc-400">Unclaimed · 1 USDC</div>
+              <div className="text-sm text-zinc-400">
+                <span className="text-amber-400">Unclaimed</span> · 1 USDC to buy · Click to buy
+              </div>
             )}
             <div className="mt-2 text-xs text-emerald-400">Click to buy or sell</div>
           </div>

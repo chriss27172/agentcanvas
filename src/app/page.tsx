@@ -31,10 +31,15 @@ export default function Home() {
           <PixelGrid />
         </section>
 
-        <section className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
-          <Leaderboard />
-          <ProfileCard />
-          <SolanaProfileCard />
+        <section className="mx-auto max-w-4xl">
+          <div className="mb-8">
+            <ListedPixels />
+          </div>
+          <div className="grid gap-8 md:grid-cols-2">
+            <Leaderboard />
+            <ProfileCard />
+            <SolanaProfileCard />
+          </div>
         </section>
 
         <section className="mx-auto mt-12 flex justify-center">

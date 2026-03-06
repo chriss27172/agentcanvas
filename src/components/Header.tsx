@@ -14,6 +14,9 @@ export function Header() {
           <a href="/my-pixels" className="text-sm text-zinc-400 transition hover:text-white">
             My pixels
           </a>
+          <a href="#market" className="text-sm text-zinc-400 transition hover:text-white">
+            Market
+          </a>
           <a href="#leaderboard" className="text-sm text-zinc-400 transition hover:text-white">
             Leaderboard
           </a>
