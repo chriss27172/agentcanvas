@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { PixelGrid } from "@/components/PixelGrid";
 import { Leaderboard } from "@/components/Leaderboard";
+import { ListedPixels } from "@/components/ListedPixels";
 import { ProfileCard } from "@/components/ProfileCard";
 import { SolanaProfileCard } from "@/components/SolanaProfileCard";
 import { TransactionHistory } from "@/components/TransactionHistory";
