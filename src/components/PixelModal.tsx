@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { parseUnits } from "viem";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -41,17 +41,19 @@ interface PixelModalProps {
 }
 
 export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps) {
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { address, chain } = useAccount();
   const publicClient = usePublicClient({ chainId: base.id });
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
   const { connection } = useConnection();
   const solanaWallet = useWallet();
   const [listPrice, setListPrice] = useState("1");
-  const [status, setStatus] = useState<"idle" | "approving" | "buying" | "buying_solana" | "buying_listed_solana" | "listing" | "unlisting" | "listing_solana" | "unlisting_solana" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "approving" | "buying" | "buying_solana" | "buying_listed_solana" | "listing" | "unlisting" | "listing_solana" | "unlisting_solana" | "switching" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   const ZERO = "0x0000000000000000000000000000000000000000";
   const baseContractSet = AGENT_CANVAS_ADDRESS && AGENT_CANVAS_ADDRESS !== ZERO;
+  const isOnBase = chain?.id === base.id;
   const x = Math.floor(pixelId / GRID_SIZE);
   const y = pixelId % GRID_SIZE;
   const isOwnBase = address && data?.owner?.toLowerCase() === address.toLowerCase();
@@ -62,8 +64,8 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
   const priceToPay = data?.exists && data?.forSale ? data.price : 1e6;
   const isListedSolana = data?.chain === "solana" && data?.forSale && !isOwn;
 
-  const ensureApproval = async () => {
-    if (!walletClient || !address || !publicClient) return false;
+  const ensureApproval = async (): Promise<boolean> => {
+    if (!address || !publicClient) return false;
     const amount = BigInt(priceToPay);
     const current = (await publicClient.readContract({
       address: USDC_BASE,
@@ -72,13 +74,14 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
       args: [address, AGENT_CANVAS_ADDRESS],
     })) as bigint;
     if (current >= amount) return true;
-    const hash = await walletClient.writeContract({
+    await writeContractAsync({
       address: USDC_BASE,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [AGENT_CANVAS_ADDRESS, BigInt(Number.MAX_SAFE_INTEGER)],
+      chainId: base.id,
     });
-    return hash != null;
+    return true;
   };
 
   const handleBuyWithSolana = async () => {
@@ -113,7 +116,20 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
   };
 
   const handleBuy = async () => {
-    if (!walletClient || !address || !canBuyBase) return;
+    if (!address || !canBuyBase) return;
+    if (!isOnBase && switchChainAsync) {
+      setStatus("switching");
+      setErrorMsg("");
+      try {
+        await switchChainAsync({ chainId: base.id });
+        setStatus("idle");
+        setErrorMsg("Switched to Base. Click Buy again.");
+      } catch (e: unknown) {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Switch to Base in your wallet first.");
+      }
+      return;
+    }
     setStatus("approving");
     setErrorMsg("");
     try {
@@ -124,16 +140,15 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
         return;
       }
       setStatus("buying");
-      const hash = await walletClient.writeContract({
+      await writeContractAsync({
         address: AGENT_CANVAS_ADDRESS,
         abi: AgentCanvasABI,
         functionName: "buy",
         args: [BigInt(pixelId)],
+        chainId: base.id,
       });
-      if (hash) {
-        setStatus("done");
-        onUpdate();
-      }
+      setStatus("done");
+      onUpdate();
     } catch (e: unknown) {
       setStatus("error");
       const msg = e instanceof Error ? e.message : String(e);
@@ -146,22 +161,34 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
   };
 
   const handleList = async () => {
-    if (!walletClient || !isOwnBase) return;
+    if (!address || !isOwnBase) return;
+    if (!isOnBase && switchChainAsync) {
+      setStatus("switching");
+      setErrorMsg("");
+      try {
+        await switchChainAsync({ chainId: base.id });
+        setStatus("idle");
+        setErrorMsg("Switched to Base. Click List again.");
+      } catch (e: unknown) {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Switch to Base in your wallet first.");
+      }
+      return;
+    }
     const priceWei = parseUnits(listPrice, 6);
     if (priceWei <= BigInt(0)) return;
     setStatus("listing");
     setErrorMsg("");
     try {
-      const hash = await walletClient.writeContract({
+      await writeContractAsync({
         address: AGENT_CANVAS_ADDRESS,
         abi: AgentCanvasABI,
         functionName: "list",
         args: [BigInt(pixelId), priceWei],
+        chainId: base.id,
       });
-      if (hash) {
-        setStatus("done");
-        onUpdate();
-      }
+      setStatus("done");
+      onUpdate();
     } catch (e: unknown) {
       setStatus("error");
       setErrorMsg(e instanceof Error ? e.message : "Transaction failed");
@@ -169,20 +196,32 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
   };
 
   const handleUnlist = async () => {
-    if (!walletClient || !isOwnBase) return;
+    if (!address || !isOwnBase) return;
+    if (!isOnBase && switchChainAsync) {
+      setStatus("switching");
+      setErrorMsg("");
+      try {
+        await switchChainAsync({ chainId: base.id });
+        setStatus("idle");
+        setErrorMsg("Switched to Base. Click Unlist again.");
+      } catch (e: unknown) {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Switch to Base in your wallet first.");
+      }
+      return;
+    }
     setStatus("unlisting");
     setErrorMsg("");
     try {
-      const hash = await walletClient.writeContract({
+      await writeContractAsync({
         address: AGENT_CANVAS_ADDRESS,
         abi: AgentCanvasABI,
         functionName: "unlist",
         args: [BigInt(pixelId)],
+        chainId: base.id,
       });
-      if (hash) {
-        setStatus("done");
-        onUpdate();
-      }
+      setStatus("done");
+      onUpdate();
     } catch (e: unknown) {
       setStatus("error");
       setErrorMsg(e instanceof Error ? e.message : "Transaction failed");
@@ -334,15 +373,19 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
           {canBuyBase && !isOwn && (
             <button
               type="button"
-              disabled={status === "approving" || status === "buying"}
+              disabled={status === "approving" || status === "buying" || status === "switching"}
               onClick={handleBuy}
               className="rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
             >
-              {status === "approving"
-                ? "Approve USDC…"
-                : status === "buying"
-                  ? "Buying…"
-                  : `Buy with Base — ${data?.exists && data?.forSale ? (data.price / 1e6).toFixed(2) : "1"} USDC`}
+              {status === "switching"
+                ? "Switching to Base…"
+                : status === "approving"
+                  ? "Approve USDC…"
+                  : status === "buying"
+                    ? "Buying…"
+                    : !isOnBase && address
+                      ? "Switch to Base & buy"
+                      : `Buy with Base — ${data?.exists && data?.forSale ? (data.price / 1e6).toFixed(2) : "1"} USDC`}
             </button>
           )}
           {canBuySolana && !isOwn && !isListedSolana && (

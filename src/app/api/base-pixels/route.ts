@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const endId = Math.min(MAX_PIXELS, parseInt(searchParams.get("endId") ?? String(MAX_PIXELS), 10));
 
   if (Number.isNaN(startId) || Number.isNaN(endId) || startId >= endId) {
-    return Response.json({ pixels: [] });
+    return Response.json({ pixels: [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
   if (!AGENT_CANVAS_ADDRESS || AGENT_CANVAS_ADDRESS === "0x0000000000000000000000000000000000000000") {
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       forSale: false,
       exists: false,
     }));
-    return Response.json({ pixels: empty });
+    return Response.json({ pixels: empty }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
   const client = createPublicClient({
@@ -68,5 +68,5 @@ export async function GET(request: NextRequest) {
     pixels.push(...batch);
   }
 
-  return Response.json({ pixels });
+  return Response.json({ pixels }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }

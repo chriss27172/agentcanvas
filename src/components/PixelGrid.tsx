@@ -167,18 +167,18 @@ export function PixelGrid() {
       }, 8000);
       try {
         // 1) Solana first (one request) — show it right away
-        const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`).then((r) => r.json());
+        const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`, { cache: "no-store" }).then((r) => r.json());
         if (cancelled) return;
         const solanaMap = parseSolana(solanaJson);
         setPixelData(solanaMap);
         setLoading(false);
         if (timeout) clearTimeout(timeout);
 
-        // 2) Base in chunks, merge as we go (background)
+        // 2) Base in chunks, merge as we go (background) — no-store so bought pixels show after refresh
         const solanaIds = new Set(solanaMap.keys());
         for (let start = 0; start < TOTAL && !cancelled; start += CHUNK_SIZE) {
           const end = Math.min(start + CHUNK_SIZE, TOTAL);
-          const json = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`).then((r) => r.json());
+          const json = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`, { cache: "no-store" }).then((r) => r.json());
           if (cancelled) return;
           setPixelData((prev) => {
             const next = new Map(prev);
@@ -284,8 +284,8 @@ export function PixelGrid() {
     const start = Math.floor(id / CHUNK_SIZE) * CHUNK_SIZE;
     const end = Math.min(start + CHUNK_SIZE, TOTAL);
     const [baseRes, solanaRes] = await Promise.all([
-      fetch(`/api/base-pixels?startId=${start}&endId=${end}`),
-      fetch("/api/solana-pixels"),
+      fetch(`/api/base-pixels?startId=${start}&endId=${end}`, { cache: "no-store" }),
+      fetch("/api/solana-pixels", { cache: "no-store" }),
     ]);
     const baseJson = (await baseRes.json()) as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> };
     const solanaJson = (await solanaRes.json()) as { pixels?: Record<string, { owner: string; listPrice: number; forSale: boolean }> };

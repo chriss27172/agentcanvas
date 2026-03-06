@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { AGENT_CANVAS_ADDRESS, USDC_BASE, GRID_SIZE } from "@/config/contracts";
@@ -23,13 +23,14 @@ interface BulkBuyModalProps {
 }
 
 export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuyModalProps) {
-  const { address: baseAddress } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { address: baseAddress, chain } = useAccount();
   const publicClient = usePublicClient({ chainId: base.id });
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
   const { connection } = useConnection();
   const solanaWallet = useWallet();
 
-  const [step, setStep] = useState<"idle" | "approving" | "buying" | "done" | "error">("idle");
+  const [step, setStep] = useState<"idle" | "switching" | "approving" | "buying" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -39,9 +40,23 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
   });
   const solanaIds = pixelIds.filter((id) => pixelData.get(id)?.chain === "solana");
   const total = baseIds.length + solanaIds.length;
+  const isOnBase = chain?.id === base.id;
 
-  const runBaseBuys = async () => {
-    if (!walletClient || !baseAddress || !publicClient || baseIds.length === 0) return;
+  const runBaseBuys = async (): Promise<"switched" | "ok" | "skip"> => {
+    if (!baseAddress || !publicClient || baseIds.length === 0) return "skip";
+    if (!isOnBase && switchChainAsync) {
+      setStep("switching");
+      setErrorMsg("");
+      try {
+        await switchChainAsync({ chainId: base.id });
+        setStep("idle");
+        setErrorMsg("Switched to Base. Click Buy all again.");
+      } catch (e: unknown) {
+        setStep("error");
+        setErrorMsg(e instanceof Error ? e.message : "Switch to Base in your wallet first.");
+      }
+      return "switched";
+    }
     const totalUsdc = BigInt(baseIds.length) * BigInt(1e6);
     const current = (await publicClient.readContract({
       address: USDC_BASE,
@@ -51,22 +66,24 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
     })) as bigint;
     if (current < totalUsdc) {
       setStep("approving");
-      await walletClient.writeContract({
+      await writeContractAsync({
         address: USDC_BASE,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [AGENT_CANVAS_ADDRESS, BigInt(Number.MAX_SAFE_INTEGER)],
+        chainId: base.id,
       });
     }
     setStep("buying");
     let done = 0;
     for (const id of baseIds) {
       try {
-        await walletClient.writeContract({
+        await writeContractAsync({
           address: AGENT_CANVAS_ADDRESS,
           abi: AgentCanvasABI,
           functionName: "buy",
           args: [BigInt(id)],
+          chainId: base.id,
         });
       } catch (e) {
         setStep("error");
@@ -81,6 +98,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
       done++;
       setProgress(done);
     }
+    return "ok";
   };
 
   const runSolanaBuys = async () => {
@@ -117,7 +135,8 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
     setErrorMsg("");
     setProgress(0);
     try {
-      await runBaseBuys();
+      const baseResult = await runBaseBuys();
+      if (baseResult === "switched") return;
       await runSolanaBuys();
       setStep("done");
       onUpdate();
@@ -127,7 +146,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
     }
   };
 
-  const canStart = (baseIds.length > 0 && baseAddress && walletClient) || (solanaIds.length > 0 && solanaWallet.publicKey);
+  const canStart = (baseIds.length > 0 && baseAddress) || (solanaIds.length > 0 && solanaWallet.publicKey);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -158,9 +177,9 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
             </div>
           </>
         )}
-        {(step === "approving" || step === "buying") && (
+        {(step === "switching" || step === "approving" || step === "buying") && (
           <p className="text-sm text-zinc-300">
-            {step === "approving" ? "Approving USDC…" : `Buying… ${progress}/${total}`}
+            {step === "switching" ? "Switching to Base…" : step === "approving" ? "Approving USDC…" : `Buying… ${progress}/${total}`}
           </p>
         )}
         {step === "done" && (
