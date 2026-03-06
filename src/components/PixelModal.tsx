@@ -149,6 +149,8 @@ export function PixelModal({ pixelId, data, onClose, onUpdate }: PixelModalProps
       });
       setStatus("done");
       onUpdate();
+      // Refetch again after block confirmation so canvas shows the new owner without manual refresh
+      setTimeout(() => onUpdate(), 3000);
     } catch (e: unknown) {
       setStatus("error");
       const msg = e instanceof Error ? e.message : String(e);

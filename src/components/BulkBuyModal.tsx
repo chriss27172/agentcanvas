@@ -140,6 +140,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
       await runSolanaBuys();
       setStep("done");
       onUpdate();
+      setTimeout(() => onUpdate(), 3000);
     } catch (e) {
       setStep("error");
       setErrorMsg(e instanceof Error ? e.message : "Failed");

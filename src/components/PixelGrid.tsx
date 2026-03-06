@@ -121,83 +121,95 @@ export function PixelGrid() {
     }
   }, [pixelData, loading]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const toPixelData = (p: { id: number; owner: string; price: number; forSale: boolean; exists: boolean }): PixelData => ({
-      id: p.id,
-      x: Math.floor(p.id / GRID_SIZE),
-      y: p.id % GRID_SIZE,
-      owner: p.owner,
-      price: p.price,
-      forSale: p.forSale,
-      exists: p.exists,
-      chain: p.exists ? "base" : undefined,
-    });
+  const toPixelData = useCallback((p: { id: number; owner: string; price: number; forSale: boolean; exists: boolean }): PixelData => ({
+    id: p.id,
+    x: Math.floor(p.id / GRID_SIZE),
+    y: p.id % GRID_SIZE,
+    owner: p.owner,
+    price: p.price,
+    forSale: p.forSale,
+    exists: p.exists,
+    chain: p.exists ? "base" : undefined,
+  }), []);
 
-    function parseSolana(json: unknown): Map<number, PixelData> {
-      const out = new Map<number, PixelData>();
-      const pixels = (json as { pixels?: Record<string, { owner: string; listPrice: number; forSale: boolean }> }).pixels ?? {};
-      for (const [idStr, s] of Object.entries(pixels)) {
-        const id = parseInt(idStr, 10);
-        if (Number.isNaN(id)) continue;
-        out.set(id, {
-          id,
-          x: Math.floor(id / GRID_SIZE),
-          y: id % GRID_SIZE,
-          owner: s.owner,
-          price: s.listPrice,
-          forSale: s.forSale,
-          exists: true,
-          chain: "solana",
+  const parseSolana = useCallback((json: unknown): Map<number, PixelData> => {
+    const out = new Map<number, PixelData>();
+    const pixels = (json as { pixels?: Record<string, { owner: string; listPrice: number; forSale: boolean }> }).pixels ?? {};
+    for (const [idStr, s] of Object.entries(pixels)) {
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) continue;
+      out.set(id, {
+        id,
+        x: Math.floor(id / GRID_SIZE),
+        y: id % GRID_SIZE,
+        owner: s.owner,
+        price: s.listPrice,
+        forSale: s.forSale,
+        exists: true,
+        chain: "solana",
+      });
+    }
+    return out;
+  }, []);
+
+  const parseBase = useCallback((json: unknown): PixelData[] => {
+    const pixels = (json as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> }).pixels ?? [];
+    return pixels.map((p) => toPixelData(p));
+  }, [toPixelData]);
+
+  const loadPixelData = useCallback(async (silent: boolean) => {
+    const opts = { cache: "no-store" as RequestCache };
+    if (!silent) setLoading(true);
+    try {
+      const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`, opts).then((r) => r.json());
+      const solanaMap = parseSolana(solanaJson);
+      setPixelData(solanaMap);
+      if (!silent) setLoading(false);
+
+      const solanaIds = new Set(solanaMap.keys());
+      for (let start = 0; start < TOTAL; start += CHUNK_SIZE) {
+        const end = Math.min(start + CHUNK_SIZE, TOTAL);
+        const json = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`, opts).then((r) => r.json());
+        setPixelData((prev) => {
+          const next = new Map(prev);
+          parseBase(json).forEach((p) => {
+            if (!solanaIds.has(p.id)) next.set(p.id, p);
+          });
+          return next;
         });
       }
-      return out;
+    } catch {
+      if (!silent) setLoading(false);
     }
+  }, [parseSolana, parseBase]);
 
-    function parseBase(json: unknown): PixelData[] {
-      const pixels = (json as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> }).pixels ?? [];
-      return pixels.map(toPixelData);
-    }
-
+  useEffect(() => {
+    let cancelled = false;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     (async () => {
+      if (cancelled) return;
       setLoading(true);
       timeout = setTimeout(() => {
         if (!cancelled) setLoading(false);
       }, 8000);
       try {
-        // 1) Solana first (one request) — show it right away
-        const solanaJson = await fetch(`/api/solana-pixels?startId=0&endId=${TOTAL}`, { cache: "no-store" }).then((r) => r.json());
-        if (cancelled) return;
-        const solanaMap = parseSolana(solanaJson);
-        setPixelData(solanaMap);
-        setLoading(false);
-        if (timeout) clearTimeout(timeout);
-
-        // 2) Base in chunks, merge as we go (background) — no-store so bought pixels show after refresh
-        const solanaIds = new Set(solanaMap.keys());
-        for (let start = 0; start < TOTAL && !cancelled; start += CHUNK_SIZE) {
-          const end = Math.min(start + CHUNK_SIZE, TOTAL);
-          const json = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`, { cache: "no-store" }).then((r) => r.json());
-          if (cancelled) return;
-          setPixelData((prev) => {
-            const next = new Map(prev);
-            parseBase(json).forEach((p) => {
-              if (!solanaIds.has(p.id)) next.set(p.id, p);
-            });
-            return next;
-          });
-        }
+        await loadPixelData(false);
       } catch {
-        if (timeout) clearTimeout(timeout);
         if (!cancelled) setLoading(false);
       }
+      if (timeout) clearTimeout(timeout);
     })();
     return () => {
       cancelled = true;
       if (timeout) clearTimeout(timeout);
     };
-  }, []);
+  }, [loadPixelData]);
+
+  const AUTO_REFRESH_MS = 25_000;
+  useEffect(() => {
+    const t = setInterval(() => loadPixelData(true), AUTO_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [loadPixelData]);
 
   const getCell = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
