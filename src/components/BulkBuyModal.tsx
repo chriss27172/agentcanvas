@@ -42,7 +42,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
   const total = baseIds.length + solanaIds.length;
   const isOnBase = chain?.id === base.id;
 
-  const runBaseBuys = async (): Promise<"switched" | "ok" | "skip"> => {
+  const runBaseBuys = async (): Promise<"switched" | "ok" | "skip" | "error"> => {
     if (!baseAddress || !publicClient || baseIds.length === 0) return "skip";
     if (!isOnBase && switchChainAsync) {
       setStep("switching");
@@ -93,7 +93,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
         } else {
           setErrorMsg(msg || "Buy failed");
         }
-        return;
+        return "error";
       }
       done++;
       setProgress(done);
@@ -136,7 +136,7 @@ export function BulkBuyModal({ pixelIds, pixelData, onClose, onUpdate }: BulkBuy
     setProgress(0);
     try {
       const baseResult = await runBaseBuys();
-      if (baseResult === "switched") return;
+      if (baseResult === "switched" || baseResult === "error") return;
       await runSolanaBuys();
       setStep("done");
       onUpdate();
