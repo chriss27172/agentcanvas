@@ -25,12 +25,25 @@ export async function GET(request: NextRequest) {
       transport: http(BASE_RPC_URL),
     });
 
-    const events = await client.getContractEvents({
-      address: AGENT_CANVAS_ADDRESS,
-      abi: AgentCanvasABI,
-      eventName: "PixelBought",
-      fromBlock: BigInt(0),
-    });
+    // Wielu RPC (np. publiczne) ogranicza zakres bloków w getLogs – najpierw pełna historia, potem fallback na ostatnie ~100k bloków
+    let events: Awaited<ReturnType<typeof client.getContractEvents>>;
+    try {
+      events = await client.getContractEvents({
+        address: AGENT_CANVAS_ADDRESS,
+        abi: AgentCanvasABI,
+        eventName: "PixelBought",
+        fromBlock: BigInt(0),
+      });
+    } catch {
+      const block = await client.getBlockNumber();
+      const fromBlock = block - BigInt(100_000);
+      events = await client.getContractEvents({
+        address: AGENT_CANVAS_ADDRESS,
+        abi: AgentCanvasABI,
+        eventName: "PixelBought",
+        fromBlock: fromBlock > BigInt(0) ? fromBlock : BigInt(0),
+      });
+    }
 
     const pixelIds = new Set<number>();
     for (const e of events) {
@@ -79,7 +92,8 @@ export async function GET(request: NextRequest) {
 
     pixels.sort((a, b) => a.id - b.id);
     return Response.json({ pixels }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-  } catch {
+  } catch (err) {
+    console.error("[my-base-pixels]", err);
     return Response.json({ pixels: [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }

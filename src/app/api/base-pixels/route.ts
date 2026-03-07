@@ -7,7 +7,7 @@ import { AgentCanvasABI } from "@/abis/AgentCanvas";
 export const dynamic = "force-dynamic";
 
 const MAX_PIXELS = GRID_SIZE * GRID_SIZE;
-const BATCH = 100;
+const BATCH = 50;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -45,7 +45,25 @@ export async function GET(request: NextRequest) {
       functionName: "getPixel" as const,
       args: [BigInt(id + i)] as const,
     }));
-    const results = await client.multicall({ contracts, allowFailure: true });
+    let results: Awaited<ReturnType<typeof client.multicall>>;
+    try {
+      results = await client.multicall({ contracts, allowFailure: true });
+    } catch {
+      try {
+        results = await client.multicall({ contracts, allowFailure: true });
+      } catch {
+        for (let i = 0; i < contracts.length; i++) {
+          pixels.push({
+            id: id + i,
+            owner: ZERO,
+            price: 0,
+            forSale: false,
+            exists: false,
+          });
+        }
+        continue;
+      }
+    }
     for (let i = 0; i < results.length; i++) {
       const pixelId = id + i;
       const r = results[i];

@@ -211,6 +211,16 @@ export function PixelGrid() {
     return () => clearInterval(t);
   }, [loadPixelData]);
 
+  useEffect(() => {
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        loadPixelData(true);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [loadPixelData]);
+
   const getCell = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -372,9 +382,18 @@ export function PixelGrid() {
 
   return (
     <div className="flex flex-col items-center gap-2 w-full max-w-full">
-      <p className="text-center text-sm text-zinc-500">
-        Full 1000×1000 grid · Scroll to pan · Drag to select multiple · Hover for owner · Click to buy or sell
-      </p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <p className="text-center text-sm text-zinc-500">
+          Full 1000×1000 grid · Scroll to pan · Drag to select multiple · Hover for owner · Click to buy or sell
+        </p>
+        <button
+          type="button"
+          onClick={() => loadPixelData(false)}
+          className="rounded bg-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-500"
+        >
+          Odśwież canvas
+        </button>
+      </div>
       <p className="text-center text-xs text-zinc-600 mt-0.5">
         Gray = unclaimed (1 USDC) · Colored = owned (color by owner) · Listed pixels show price on hover
       </p>

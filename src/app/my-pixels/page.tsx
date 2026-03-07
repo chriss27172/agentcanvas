@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
@@ -26,13 +26,10 @@ export default function MyPixelsPage() {
   const [loadingSolana, setLoadingSolana] = useState(false);
   const [baseProgress, setBaseProgress] = useState("");
 
-  useEffect(() => {
-    if (!solanaAddress) {
-      setSolanaPixels([]);
-      return;
-    }
+  const fetchSolanaPixels = useCallback(() => {
+    if (!solanaAddress) return;
     setLoadingSolana(true);
-    fetch(`/api/my-pixels?owner=${encodeURIComponent(solanaAddress)}`)
+    fetch(`/api/my-pixels?owner=${encodeURIComponent(solanaAddress)}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data.chain === "solana" && Array.isArray(data.pixels)) {
@@ -46,17 +43,20 @@ export default function MyPixelsPage() {
   }, [solanaAddress]);
 
   useEffect(() => {
-    if (!baseAddress) {
-      setBasePixels([]);
+    if (!solanaAddress) {
+      setSolanaPixels([]);
       return;
     }
+    fetchSolanaPixels();
+  }, [solanaAddress, fetchSolanaPixels]);
+
+  const fetchBasePixels = useCallback(() => {
+    if (!baseAddress) return;
     setLoadingBase(true);
     setBaseProgress("…");
-    let cancelled = false;
     fetch(`/api/my-base-pixels?owner=${encodeURIComponent(baseAddress)}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled) return;
         const list = (data.pixels ?? []) as Array<{ id: number; x: number; y: number; price: number; forSale: boolean }>;
         setBasePixels(
           list.map((p) => ({
@@ -68,20 +68,20 @@ export default function MyPixelsPage() {
           }))
         );
       })
-      .catch(() => {
-        if (!cancelled) setBasePixels([]);
-      })
+      .catch(() => setBasePixels([]))
       .finally(() => {
-        if (!cancelled) {
-          setBaseProgress("");
-          setLoadingBase(false);
-        }
+        setBaseProgress("");
+        setLoadingBase(false);
       });
-    return () => {
-      cancelled = true;
-      setLoadingBase(false);
-    };
   }, [baseAddress]);
+
+  useEffect(() => {
+    if (!baseAddress) {
+      setBasePixels([]);
+      return;
+    }
+    fetchBasePixels();
+  }, [baseAddress, fetchBasePixels]);
 
   const hasBase = !!baseAddress;
   const hasSolana = !!solanaAddress;
@@ -104,9 +104,19 @@ export default function MyPixelsPage() {
 
         {hasBase && (
           <section className="mb-10">
-            <h2 className="mb-3 text-lg font-semibold text-white">
-              Base {baseAddress && <span className="font-mono text-sm text-zinc-500">({baseAddress.slice(0, 8)}…)</span>}
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">
+                Base {baseAddress && <span className="font-mono text-sm text-zinc-500">({baseAddress.slice(0, 8)}…)</span>}
+              </h2>
+              <button
+                type="button"
+                onClick={() => fetchBasePixels()}
+                disabled={loadingBase}
+                className="rounded bg-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-500 disabled:opacity-50"
+              >
+                Odśwież
+              </button>
+            </div>
             {loadingBase ? (
               <p className="text-zinc-500">
                 Loading your Base pixels… {baseProgress}
@@ -144,9 +154,19 @@ export default function MyPixelsPage() {
 
         {hasSolana && (
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-white">
-              Solana {solanaAddress && <span className="font-mono text-sm text-zinc-500">({solanaAddress.slice(0, 8)}…)</span>}
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">
+                Solana {solanaAddress && <span className="font-mono text-sm text-zinc-500">({solanaAddress.slice(0, 8)}…)</span>}
+              </h2>
+              <button
+                type="button"
+                onClick={() => fetchSolanaPixels()}
+                disabled={loadingSolana}
+                className="rounded bg-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-500 disabled:opacity-50"
+              >
+                Odśwież
+              </button>
+            </div>
             {loadingSolana ? (
               <p className="text-zinc-500">Loading…</p>
             ) : solanaPixels.length === 0 ? (
