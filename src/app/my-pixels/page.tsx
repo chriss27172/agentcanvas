@@ -5,10 +5,7 @@ import { useAccount } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { GRID_SIZE } from "@/config/contracts";
 
-const CHUNK = 10_000;
-const MAX_BASE_CHUNKS = 100;
 
 interface PixelRow {
   id: number;
@@ -54,45 +51,32 @@ export default function MyPixelsPage() {
       return;
     }
     setLoadingBase(true);
-    setBasePixels([]);
-    setBaseProgress("0%");
+    setBaseProgress("…");
     let cancelled = false;
-    const collected: PixelRow[] = [];
-    let done = 0;
-    const totalChunks = MAX_BASE_CHUNKS;
-    (async () => {
-      for (let start = 0; start < GRID_SIZE * GRID_SIZE && !cancelled; start += CHUNK) {
-        const end = Math.min(start + CHUNK, GRID_SIZE * GRID_SIZE);
-        try {
-          const res = await fetch(`/api/base-pixels?startId=${start}&endId=${end}`, { cache: "no-store" });
-          const json = (await res.json()) as { pixels?: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> };
-          const list = json.pixels ?? [];
-          list.forEach((p) => {
-            if (p.owner && p.owner.toLowerCase() === baseAddress.toLowerCase() && p.exists) {
-              collected.push({
-                id: p.id,
-                x: Math.floor(p.id / GRID_SIZE),
-                y: p.id % GRID_SIZE,
-                listPrice: p.price,
-                forSale: p.forSale,
-              });
-            }
-          });
-        } catch {
-          // skip chunk
-        }
-        done++;
+    fetch(`/api/my-base-pixels?owner=${encodeURIComponent(baseAddress)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const list = (data.pixels ?? []) as Array<{ id: number; x: number; y: number; price: number; forSale: boolean }>;
+        setBasePixels(
+          list.map((p) => ({
+            id: p.id,
+            x: p.x,
+            y: p.y,
+            listPrice: p.price,
+            forSale: p.forSale,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setBasePixels([]);
+      })
+      .finally(() => {
         if (!cancelled) {
-          setBaseProgress(`${Math.round((done / totalChunks) * 100)}%`);
-          setBasePixels([...collected]);
+          setBaseProgress("");
+          setLoadingBase(false);
         }
-        if (done >= totalChunks) break;
-      }
-      if (!cancelled) {
-        setBaseProgress("");
-        setLoadingBase(false);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
       setLoadingBase(false);
@@ -125,7 +109,7 @@ export default function MyPixelsPage() {
             </h2>
             {loadingBase ? (
               <p className="text-zinc-500">
-                Scanning canvas… {baseProgress && `(${baseProgress})`}
+                Loading your Base pixels… {baseProgress}
               </p>
             ) : basePixels.length === 0 ? (
               <p className="text-zinc-500">No Base pixels owned by this wallet.</p>

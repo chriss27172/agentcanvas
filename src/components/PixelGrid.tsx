@@ -384,17 +384,18 @@ export function PixelGrid() {
         style={{
           width: "100%",
           maxWidth: 1000,
-          height: "min(85vh, 1000px)",
+          height: 600,
           minHeight: 400,
         }}
       >
         <div
-          className="relative shrink-0"
+          className="relative"
           style={{
-            width: `${GRID_SIZE}px`,
-            height: `${GRID_SIZE}px`,
-            minWidth: `${GRID_SIZE}px`,
-            minHeight: `${GRID_SIZE}px`,
+            width: "1000px",
+            height: "1000px",
+            minWidth: "1000px",
+            minHeight: "1000px",
+            flexShrink: 0,
           }}
         >
           {loading && (
@@ -404,14 +405,15 @@ export function PixelGrid() {
           )}
           <canvas
             ref={canvasRef}
-            width={GRID_SIZE}
-            height={GRID_SIZE}
-            className="cursor-crosshair block shrink-0"
+            width={1000}
+            height={1000}
+            className="cursor-crosshair block"
             style={{
-              width: `${GRID_SIZE}px`,
-              height: `${GRID_SIZE}px`,
-              minWidth: `${GRID_SIZE}px`,
-              minHeight: `${GRID_SIZE}px`,
+              width: "1000px",
+              height: "1000px",
+              minWidth: "1000px",
+              minHeight: "1000px",
+              display: "block",
               imageRendering: "pixelated",
             }}
             onMouseDown={handleMouseDown}

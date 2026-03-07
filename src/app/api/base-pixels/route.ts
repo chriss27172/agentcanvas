@@ -35,55 +35,39 @@ export async function GET(request: NextRequest) {
   });
 
   const pixels: Array<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> = [];
-
-  const readPixel = async (pixelId: number): Promise<{ id: number; owner: string; price: number; forSale: boolean; exists: boolean }> => {
-    try {
-      const [owner, price, forSale, exists] = await client.readContract({
-        address: AGENT_CANVAS_ADDRESS,
-        abi: AgentCanvasABI,
-        functionName: "getPixel",
-        args: [BigInt(pixelId)],
-      });
-      return {
-        id: pixelId,
-        owner: owner as string,
-        price: Number(price),
-        forSale: forSale as boolean,
-        exists: exists as boolean,
-      };
-    } catch {
-      try {
-        const [owner, price, forSale, exists] = await client.readContract({
-          address: AGENT_CANVAS_ADDRESS,
-          abi: AgentCanvasABI,
-          functionName: "getPixel",
-          args: [BigInt(pixelId)],
-        });
-        return {
-          id: pixelId,
-          owner: owner as string,
-          price: Number(price),
-          forSale: forSale as boolean,
-          exists: exists as boolean,
-        };
-      } catch {
-        return {
-          id: pixelId,
-          owner: "0x0000000000000000000000000000000000000000",
-          price: 0,
-          forSale: false,
-          exists: false,
-        };
-      }
-    }
-  };
+  const ZERO = "0x0000000000000000000000000000000000000000";
 
   for (let id = startId; id < endId; id += BATCH) {
     const batchEnd = Math.min(id + BATCH, endId);
-    const batch = await Promise.all(
-      Array.from({ length: batchEnd - id }, (_, i) => id + i).map((pixelId) => readPixel(pixelId))
-    );
-    pixels.push(...batch);
+    const contracts = Array.from({ length: batchEnd - id }, (_, i) => ({
+      address: AGENT_CANVAS_ADDRESS,
+      abi: AgentCanvasABI,
+      functionName: "getPixel" as const,
+      args: [BigInt(id + i)] as const,
+    }));
+    const results = await client.multicall({ contracts, allowFailure: true });
+    for (let i = 0; i < results.length; i++) {
+      const pixelId = id + i;
+      const r = results[i];
+      if (r.status === "success" && r.result && Array.isArray(r.result)) {
+        const [owner, price, forSale, exists] = r.result;
+        pixels.push({
+          id: pixelId,
+          owner: (owner as string) ?? ZERO,
+          price: Number(price ?? 0),
+          forSale: Boolean(forSale),
+          exists: Boolean(exists),
+        });
+      } else {
+        pixels.push({
+          id: pixelId,
+          owner: ZERO,
+          price: 0,
+          forSale: false,
+          exists: false,
+        });
+      }
+    }
   }
 
   return Response.json({ pixels }, { headers: { "Cache-Control": "no-store, max-age=0" } });
